@@ -1,0 +1,39 @@
+name: candella-ecosystem
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: candella
+      POSTGRES_PASSWORD: candella
+      POSTGRES_DB: candella
+    # Published on 5433 (not the default 5432) so Candella's Postgres coexists
+    # with any other local Postgres already bound to 5432.
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U candella"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Published on 6381 to avoid clashing with other local Redis instances.
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+  redis-data:

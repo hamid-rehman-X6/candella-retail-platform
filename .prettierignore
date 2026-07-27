@@ -1,0 +1,24 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+.next
+out
+dist
+**/.turbo
+*.tsbuildinfo
+frontend/next-env.d.ts
+
+# Lockfiles / generated
+pnpm-lock.yaml
+
+# Go backend — formatted by gofmt, not Prettier
+backend
+
+# Auto-generated Next.js agent notes
+frontend/AGENTS.md
+frontend/CLAUDE.md
+
+# Original project brief — kept verbatim
+CLAUDE.md

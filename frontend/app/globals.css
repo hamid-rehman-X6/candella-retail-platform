@@ -1,0 +1,268 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ *
+ * Candella Design Tokens — dark, cinematic, warm amber→gold glow.
+ * Single source of truth for color, type, motion. Every component
+ * references these tokens rather than hardcoding values.
+ * ------------------------------------------------------------------ */
+@theme {
+  /* Surfaces — near-black with a faint warmth, layered for depth */
+  --color-canvas: #08080a;
+  --color-canvas-raised: #0e0e12;
+  --color-surface: #131318;
+  --color-surface-2: #1a1a21;
+
+  /* Hairlines / borders */
+  --color-line: #ffffff14; /* ~8% white */
+  --color-line-strong: #ffffff26; /* ~15% white */
+
+  /* Text */
+  --color-foreground: #f6f5f3;
+  --color-muted: #a8a29e; /* warm stone-400 */
+  --color-subtle: #78716c; /* warm stone-500 */
+
+  /* Brand accent — the "Candella" light: amber → gold */
+  --color-accent: #f59e0b;
+  --color-accent-bright: #fbbf24;
+  --color-accent-soft: #fcd34d;
+  --color-accent-deep: #b45309;
+
+  /* Radii */
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2.25rem;
+
+  /* Fonts (bound to next/font CSS variables on <html>) */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Named animations */
+  --animate-marquee: marquee 42s linear infinite;
+  --animate-marquee-reverse: marquee-reverse 42s linear infinite;
+  --animate-aurora: aurora 20s ease-in-out infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-float-slow: float 11s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.4s linear infinite;
+  --animate-glow-pulse: glow-pulse 5s ease-in-out infinite;
+  --animate-spin-slow: spin 22s linear infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes marquee-reverse {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes aurora {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate3d(4%, -3%, 0) scale(1.15);
+    opacity: 0.8;
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Base
+ * ------------------------------------------------------------------ */
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-accent) 35%, transparent);
+  color: #fff;
+}
+
+/* Custom scrollbar (WebKit) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-canvas);
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--color-accent) 35%, #333);
+  border-radius: 999px;
+  border: 2px solid var(--color-canvas);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--color-accent) 60%, #333);
+}
+
+/* ------------------------------------------------------------------ *
+ * Reusable utility classes
+ * ------------------------------------------------------------------ */
+
+/* Amber→gold text gradient for headline accents */
+.text-gradient {
+  background: linear-gradient(
+    100deg,
+    var(--color-accent-soft) 0%,
+    var(--color-accent-bright) 40%,
+    var(--color-accent) 70%,
+    var(--color-accent-deep) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Frosted glass surface */
+.glass {
+  background: color-mix(in oklab, var(--color-surface) 70%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--color-line);
+}
+
+/* Subtle top-lit card gradient + hairline */
+.card-surface {
+  background:
+    radial-gradient(120% 120% at 50% 0%, #ffffff0a 0%, transparent 55%),
+    var(--color-surface);
+  border: 1px solid var(--color-line);
+}
+
+/* Gradient hairline border via mask (for premium card edges) */
+.ring-gradient {
+  position: relative;
+}
+.ring-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    140deg,
+    color-mix(in oklab, var(--color-accent) 55%, transparent),
+    transparent 40%,
+    transparent 60%,
+    color-mix(in oklab, var(--color-accent) 25%, transparent)
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Amber glow halo */
+.glow-accent {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-accent) 25%, transparent),
+    0 8px 40px -8px color-mix(in oklab, var(--color-accent) 45%, transparent),
+    0 0 60px -20px color-mix(in oklab, var(--color-accent) 60%, transparent);
+}
+
+/* Dotted / grid backdrops */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, #ffffff08 1px, transparent 1px),
+    linear-gradient(to bottom, #ffffff08 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+.bg-dots {
+  background-image: radial-gradient(#ffffff12 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+/* Radial fade mask helper */
+.mask-fade-edges {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 12%,
+    #000 88%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 12%,
+    #000 88%,
+    transparent
+  );
+}
+.mask-fade-b {
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+
+/* Animated conic shimmer used on featured borders */
+.shimmer-border {
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    color-mix(in oklab, var(--color-accent-bright) 70%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+}
+
+/* Pause all animation for reduced-motion users */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

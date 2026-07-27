@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+frontend/.next/
+frontend/out/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Turborepo
+.turbo/
+
+# Go
+backend/bin/
+backend/tmp/
+*.exe
+*.exe~
+*.test
+*.out
+
+# Env files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Docker volumes (local only)
+infrastructure/docker/data/
+
+# Local-only — kept on this machine, never pushed to the remote
+docs/
+CLAUDE.md
+SETUP.md
+.claude/
