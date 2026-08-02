@@ -30,6 +30,7 @@ func main() {
 		command = os.Args[1]
 	}
 
+	config.LoadDotEnv(".env")
 	cfg := config.Load()
 
 	db, err := sql.Open("pgx", cfg.DatabaseURL)

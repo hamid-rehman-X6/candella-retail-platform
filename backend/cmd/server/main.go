@@ -25,6 +25,10 @@ import (
 )
 
 func main() {
+	// Load backend/.env (if present) before reading config, so local dev "just
+	// works" without exporting env vars by hand. Real env vars still take priority.
+	config.LoadDotEnv(".env")
+
 	cfg := config.Load()
 	log := logger.New(cfg.Env)
 
