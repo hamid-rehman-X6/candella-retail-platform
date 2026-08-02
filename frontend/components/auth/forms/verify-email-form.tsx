@@ -7,11 +7,16 @@ import { MailCheck, ArrowRight, Loader2 } from "lucide-react";
 import { AuthHeader } from "@/components/auth/auth-header";
 import { OtpInput } from "@/components/auth/otp-input";
 import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api";
+import { verifyEmail, resendVerification, pendingEmail } from "@/lib/auth-api";
+import { useSessionValue } from "@/lib/use-session-value";
 
 const RESEND_SECONDS = 30;
 
 export function VerifyEmailForm() {
   const router = useRouter();
+  // The email was stashed by the signup / login step (client-only, hydration-safe).
+  const email = useSessionValue(pendingEmail.get);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string>();
   const [verifying, setVerifying] = useState(false);
@@ -24,27 +29,35 @@ export function VerifyEmailForm() {
     return () => clearTimeout(id);
   }, [seconds]);
 
-  function verify(value: string) {
+  async function verify(value: string) {
     setVerifying(true);
     setError(undefined);
-    // TODO: verify the code against the backend.
-    setTimeout(() => {
-      if (value === "000000") {
-        setVerifying(false);
-        setError("That code isn't right. Check it and try again.");
-        setCode("");
-        return;
-      }
+    try {
+      await verifyEmail({ email, code: value });
+      pendingEmail.clear();
+      // Verified + signed in — prompt to secure the account with 2FA.
       router.push("/two-factor/setup");
-    }, 800);
+    } catch (err) {
+      setVerifying(false);
+      setCode("");
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Something went wrong. Try again.",
+      );
+    }
   }
 
-  function resend() {
+  async function resend() {
     setSeconds(RESEND_SECONDS);
     setCode("");
     setError(undefined);
-    setResent(true);
-    // TODO: ask the backend to send a new code.
+    try {
+      await resendVerification(email);
+      setResent(true);
+    } catch {
+      /* generic — no enumeration; nothing to show */
+    }
   }
 
   return (
@@ -52,7 +65,16 @@ export function VerifyEmailForm() {
       <AuthHeader
         icon={MailCheck}
         title="Verify your email"
-        subtitle="We sent a 6-digit code to your email address. Enter it below to confirm it's you."
+        subtitle={
+          email ? (
+            <>
+              Enter the 6-digit code we sent to{" "}
+              <span className="font-medium text-foreground/90">{email}</span>.
+            </>
+          ) : (
+            "Enter the 6-digit code we sent to your email address."
+          )
+        }
       />
 
       <div className="flex flex-col gap-4">
