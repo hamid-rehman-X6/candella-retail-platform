@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/cn";
 
 /** Candella brand mark — a luminous spark inside a rounded token. */
@@ -21,15 +22,17 @@ export function LogoMark({ className }: { className?: string }) {
 }
 
 export function Logo({ className }: { className?: string }) {
+  // Always routes to the home page. Using a real route (not a "#top" anchor) means
+  // it works from the auth screens too, and never leaves a dangling #top in the URL.
   return (
-    <a
-      href="#top"
+    <Link
+      href="/"
       className={cn("group inline-flex items-center gap-2.5", className)}
     >
       <LogoMark />
       <span className="text-lg font-semibold tracking-tight text-foreground">
         Candella
       </span>
-    </a>
+    </Link>
   );
 }

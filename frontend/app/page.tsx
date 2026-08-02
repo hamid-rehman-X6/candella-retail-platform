@@ -1,4 +1,6 @@
 import { BackgroundEffects } from "@/components/landing/background-effects";
+import { ScrollProgress } from "@/components/ui/scroll-progress";
+import { ScrollToTop } from "@/components/ui/scroll-to-top";
 import { Navbar } from "@/components/landing/navbar";
 import { Hero } from "@/components/landing/hero";
 import { LogoMarquee } from "@/components/landing/logo-marquee";
@@ -19,6 +21,7 @@ export default function Home() {
   return (
     <>
       <BackgroundEffects />
+      <ScrollProgress />
       <Navbar />
       <main className="relative">
         <Hero />
@@ -36,6 +39,7 @@ export default function Home() {
         <CTA />
       </main>
       <Footer />
+      <ScrollToTop />
     </>
   );
 }
