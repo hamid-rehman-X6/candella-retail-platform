@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Smartphone, KeyRound, ArrowRight, Loader2 } from "lucide-react";
@@ -8,6 +8,8 @@ import { AuthHeader } from "@/components/auth/auth-header";
 import { OtpInput } from "@/components/auth/otp-input";
 import { TextField } from "@/components/auth/text-field";
 import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api";
+import { verifyTwoFactor, verifyBackupCode, mfaToken } from "@/lib/auth-api";
 
 export function TwoFactorForm() {
   const router = useRouter();
@@ -17,22 +19,26 @@ export function TwoFactorForm() {
   const [error, setError] = useState<string>();
   const [verifying, setVerifying] = useState(false);
 
-  function verify(value: string) {
+  // The mfaToken was issued by the login step. Without it, restart at login.
+  useEffect(() => {
+    if (!mfaToken.get()) router.replace("/login");
+  }, [router]);
+
+  async function verify(value: string) {
     setVerifying(true);
     setError(undefined);
-    // TODO: verify the TOTP / backup code against the backend.
-    setTimeout(() => {
-      if (value === "000000") {
-        setVerifying(false);
-        setError("Invalid code. Open your authenticator app and try again.");
-        setCode("");
-        return;
-      }
+    try {
+      await verifyTwoFactor({ mfaToken: mfaToken.get(), code: value });
+      mfaToken.clear();
       router.push("/");
-    }, 800);
+    } catch (err) {
+      setVerifying(false);
+      setCode("");
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    }
   }
 
-  function verifyBackup(e: React.FormEvent) {
+  async function submitBackup(e: React.FormEvent) {
     e.preventDefault();
     if (backup.trim().length < 8) {
       setError("Enter one of your backup codes.");
@@ -40,7 +46,14 @@ export function TwoFactorForm() {
     }
     setVerifying(true);
     setError(undefined);
-    setTimeout(() => router.push("/"), 800);
+    try {
+      await verifyBackupCode({ mfaToken: mfaToken.get(), backupCode: backup });
+      mfaToken.clear();
+      router.push("/");
+    } catch (err) {
+      setVerifying(false);
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    }
   }
 
   return (
@@ -98,7 +111,7 @@ export function TwoFactorForm() {
           </button>
         </div>
       ) : (
-        <form onSubmit={verifyBackup} className="flex flex-col gap-4">
+        <form onSubmit={submitBackup} className="flex flex-col gap-4">
           <TextField
             label="Backup code"
             icon={KeyRound}

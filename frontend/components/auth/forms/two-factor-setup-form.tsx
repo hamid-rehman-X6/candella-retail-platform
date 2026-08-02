@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
@@ -16,34 +16,55 @@ import { AuthHeader } from "@/components/auth/auth-header";
 import { OtpInput } from "@/components/auth/otp-input";
 import { Button } from "@/components/ui/button";
 import { CheckLine } from "@/components/auth/brand-panel";
+import { ApiError } from "@/lib/api";
+import { setupTwoFactor, enableTwoFactor } from "@/lib/auth-api";
 
-// Demo values only — a real secret + backup codes come from the backend at setup.
-const DEMO_SECRET = "JBSWY3DPEHPK3PXP";
-const OTPAUTH_URL = `otpauth://totp/Candella:you@company.com?secret=${DEMO_SECRET}&issuer=Candella&algorithm=SHA1&digits=6&period=30`;
-const BACKUP_CODES = [
-  "4F9K-2QMX",
-  "8ZC3-RTP7",
-  "1WN6-LK9D",
-  "5HB2-XQ4V",
-  "9TM8-PC3R",
-  "2KD7-VN6L",
-  "6RX4-ZQ8M",
-  "3PL9-WH2K",
-];
-
-type Step = "scan" | "confirm" | "done";
+type Step = "loading" | "scan" | "confirm" | "done";
 
 export function TwoFactorSetupForm() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("scan");
+  const [step, setStep] = useState<Step>("loading");
+  const [secret, setSecret] = useState("");
+  const [otpauthUrl, setOtpauthUrl] = useState("");
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string>();
   const [verifying, setVerifying] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Fetch a fresh secret + QR when the page opens (requires a session).
+  useEffect(() => {
+    let active = true;
+    setupTwoFactor()
+      .then((res) => {
+        if (!active) return;
+        setSecret(res.secret);
+        setOtpauthUrl(res.otpauthUrl);
+        setStep("scan");
+      })
+      .catch((err) => {
+        if (!active) return;
+        if (err instanceof ApiError && err.code === "unauthenticated") {
+          router.replace("/login");
+          return;
+        }
+        if (err instanceof ApiError && err.code === "mfa_already_enabled") {
+          router.replace("/");
+          return;
+        }
+        setError(
+          err instanceof ApiError ? err.message : "Couldn't start 2FA setup.",
+        );
+        setStep("scan");
+      });
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
   async function copySecret() {
     try {
-      await navigator.clipboard.writeText(DEMO_SECRET);
+      await navigator.clipboard.writeText(secret);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -51,19 +72,27 @@ export function TwoFactorSetupForm() {
     }
   }
 
-  function confirm(value: string) {
+  async function confirm(value: string) {
     setVerifying(true);
     setError(undefined);
-    // TODO: verify the first TOTP code against the backend to enable 2FA.
-    setTimeout(() => {
-      setVerifying(false);
-      if (value === "000000") {
-        setError("That code didn't match. Wait for the next one and retry.");
-        setCode("");
-        return;
-      }
+    try {
+      const res = await enableTwoFactor(value);
+      setBackupCodes(res.backupCodes);
       setStep("done");
-    }, 800);
+    } catch (err) {
+      setVerifying(false);
+      setCode("");
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    }
+  }
+
+  if (step === "loading") {
+    return (
+      <div className="flex flex-col items-center gap-4 py-16 text-muted">
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+        Preparing two-factor setup…
+      </div>
+    );
   }
 
   if (step === "done") {
@@ -76,7 +105,7 @@ export function TwoFactorSetupForm() {
         />
 
         <div className="grid grid-cols-2 gap-2 rounded-2xl border border-line bg-white/[0.02] p-4 font-mono text-sm">
-          {BACKUP_CODES.map((c) => (
+          {backupCodes.map((c) => (
             <span key={c} className="text-center text-foreground/85">
               {c}
             </span>
@@ -152,6 +181,7 @@ export function TwoFactorSetupForm() {
     );
   }
 
+  // step === "scan"
   return (
     <div className="flex flex-col gap-8">
       <AuthHeader
@@ -160,9 +190,17 @@ export function TwoFactorSetupForm() {
         subtitle="Scan this QR code with an authenticator app like Google Authenticator, 1Password or Authy."
       />
 
+      {error && <p className="text-sm text-red-400">{error}</p>}
+
       <div className="flex flex-col items-center gap-5">
         <div className="rounded-2xl bg-white p-4 shadow-lg">
-          <QRCodeSVG value={OTPAUTH_URL} size={168} level="M" />
+          {otpauthUrl ? (
+            <QRCodeSVG value={otpauthUrl} size={168} level="M" />
+          ) : (
+            <div className="flex h-[168px] w-[168px] items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-black/40" />
+            </div>
+          )}
         </div>
 
         <div className="w-full">
@@ -174,7 +212,7 @@ export function TwoFactorSetupForm() {
             onClick={copySecret}
             className="flex w-full items-center justify-between gap-3 rounded-xl border border-line bg-white/5 px-4 py-3 font-mono text-sm tracking-wider text-foreground transition-colors hover:border-line-strong"
           >
-            {DEMO_SECRET}
+            {secret || "…"}
             <span className="flex items-center gap-1 text-xs text-muted">
               {copied ? (
                 <>
@@ -191,7 +229,15 @@ export function TwoFactorSetupForm() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <Button size="lg" className="w-full" onClick={() => setStep("confirm")}>
+        <Button
+          size="lg"
+          className="w-full"
+          disabled={!secret}
+          onClick={() => {
+            setError(undefined);
+            setStep("confirm");
+          }}
+        >
           I&apos;ve added it — continue
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Button>

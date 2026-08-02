@@ -11,6 +11,8 @@ import { GoogleButton } from "@/components/auth/google-button";
 import { Divider } from "@/components/auth/divider";
 import { Button } from "@/components/ui/button";
 import { isValidEmail } from "@/lib/validation";
+import { ApiError } from "@/lib/api";
+import { login, googleStartUrl, pendingEmail, mfaToken } from "@/lib/auth-api";
 
 export function LoginForm() {
   const router = useRouter();
@@ -19,10 +21,10 @@ export function LoginForm() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>(
     {},
   );
+  const [formError, setFormError] = useState<string>();
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const next: typeof errors = {};
     if (!isValidEmail(email)) next.email = "Enter a valid email address.";
@@ -30,19 +32,34 @@ export function LoginForm() {
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
+    setFormError(undefined);
     setLoading(true);
-    // TODO: replace with real sign-in call to the backend auth endpoint.
-    setTimeout(() => {
-      // In production, redirect here only when the account has 2FA enabled;
-      // otherwise go straight to the dashboard.
-      router.push("/two-factor");
-    }, 900);
+    try {
+      const res = await login({ email, password });
+      if (res.mfaRequired && res.mfaToken) {
+        mfaToken.set(res.mfaToken);
+        router.push("/two-factor");
+        return;
+      }
+      // Signed in. TODO: route to /dashboard once it exists.
+      router.push("/");
+    } catch (err) {
+      setLoading(false);
+      if (err instanceof ApiError) {
+        if (err.code === "email_not_verified") {
+          pendingEmail.set(email);
+          router.push("/verify-email");
+          return;
+        }
+        setFormError(err.message);
+      } else {
+        setFormError("Something went wrong. Please try again.");
+      }
+    }
   }
 
   function handleGoogle() {
-    setGoogleLoading(true);
-    // TODO: kick off Google OAuth flow.
-    setTimeout(() => router.push("/two-factor"), 900);
+    window.location.href = googleStartUrl;
   }
 
   return (
@@ -52,11 +69,14 @@ export function LoginForm() {
         subtitle="Sign in to your Candella workspace to keep every counter running."
       />
 
-      <GoogleButton
-        onClick={handleGoogle}
-        disabled={googleLoading || loading}
-      />
+      <GoogleButton onClick={handleGoogle} disabled={loading} />
       <Divider />
+
+      {formError && (
+        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {formError}
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <TextField

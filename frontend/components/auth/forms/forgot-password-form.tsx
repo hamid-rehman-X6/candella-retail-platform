@@ -7,6 +7,7 @@ import { AuthHeader } from "@/components/auth/auth-header";
 import { TextField } from "@/components/auth/text-field";
 import { Button } from "@/components/ui/button";
 import { isValidEmail } from "@/lib/validation";
+import { forgotPassword } from "@/lib/auth-api";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
@@ -14,7 +15,7 @@ export function ForgotPasswordForm() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isValidEmail(email)) {
       setError("Enter a valid email address.");
@@ -22,11 +23,15 @@ export function ForgotPasswordForm() {
     }
     setError(undefined);
     setLoading(true);
-    // TODO: ask backend to send a password-reset link/code.
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      // The backend always responds the same way (no account enumeration).
+      await forgotPassword(email);
       setSent(true);
-    }, 900);
+    } catch {
+      setError("Couldn't send the reset link. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (sent) {
@@ -39,24 +44,19 @@ export function ForgotPasswordForm() {
             <>
               If an account exists for{" "}
               <span className="font-medium text-foreground/90">{email}</span>,
-              we&apos;ve sent a link to reset your password.
+              we&apos;ve sent a link to reset your password. The link expires in
+              30 minutes.
             </>
           }
         />
 
-        <div className="flex flex-col gap-3">
-          <Button href="/reset-password" size="lg" className="w-full">
-            Open reset link
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </Button>
-          <button
-            type="button"
-            onClick={() => setSent(false)}
-            className="text-center text-sm text-muted transition-colors hover:text-accent"
-          >
-            Didn&apos;t get it? Try another email
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setSent(false)}
+          className="text-center text-sm text-muted transition-colors hover:text-accent"
+        >
+          Didn&apos;t get it? Try another email
+        </button>
 
         <p className="text-center text-sm text-muted">
           <Link

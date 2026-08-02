@@ -11,6 +11,8 @@ import { GoogleButton } from "@/components/auth/google-button";
 import { Divider } from "@/components/auth/divider";
 import { Button } from "@/components/ui/button";
 import { isValidEmail, getPasswordStrength } from "@/lib/validation";
+import { ApiError } from "@/lib/api";
+import { register, googleStartUrl, pendingEmail } from "@/lib/auth-api";
 
 export function SignupForm() {
   const router = useRouter();
@@ -24,10 +26,10 @@ export function SignupForm() {
     password?: string;
     agreed?: string;
   }>({});
+  const [formError, setFormError] = useState<string>();
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const next: typeof errors = {};
     if (name.trim().length < 2) next.name = "Enter your full name.";
@@ -38,14 +40,29 @@ export function SignupForm() {
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
+    setFormError(undefined);
     setLoading(true);
-    // TODO: replace with real sign-up call; backend then emails a 6-digit code.
-    setTimeout(() => router.push("/verify-email"), 900);
+    try {
+      await register({ fullName: name, email, password });
+      pendingEmail.set(email);
+      router.push("/verify-email");
+    } catch (err) {
+      setLoading(false);
+      if (err instanceof ApiError) {
+        if (err.code === "email_taken") setErrors({ email: err.message });
+        else if (err.code === "invalid_email")
+          setErrors({ email: err.message });
+        else if (err.code === "weak_password")
+          setErrors({ password: err.message });
+        else setFormError(err.message);
+      } else {
+        setFormError("Something went wrong. Please try again.");
+      }
+    }
   }
 
   function handleGoogle() {
-    setGoogleLoading(true);
-    setTimeout(() => router.push("/verify-email"), 900);
+    window.location.href = googleStartUrl;
   }
 
   return (
@@ -58,9 +75,15 @@ export function SignupForm() {
       <GoogleButton
         label="Sign up with Google"
         onClick={handleGoogle}
-        disabled={googleLoading || loading}
+        disabled={loading}
       />
       <Divider />
+
+      {formError && (
+        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {formError}
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <TextField
