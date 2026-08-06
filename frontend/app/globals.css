@@ -37,8 +37,6 @@
   --font-mono: var(--font-geist-mono);
 
   /* Named animations */
-  --animate-marquee: marquee 42s linear infinite;
-  --animate-marquee-reverse: marquee-reverse 42s linear infinite;
   --animate-aurora: aurora 20s ease-in-out infinite;
   --animate-float: float 7s ease-in-out infinite;
   --animate-float-slow: float 11s ease-in-out infinite;
@@ -47,21 +45,36 @@
   --animate-spin-slow: spin 22s linear infinite;
 }
 
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
+/* ------------------------------------------------------------------ *
+ * Seamless, gap-free infinite marquee — correct at ANY viewport width.
+ * Two identical groups sit side by side; each scrolls left by its own full
+ * width + the inter-group gap, so as one group exits the other takes its place
+ * (no blank edge, ever). `min-width:100%` + `space-around` guarantees each group
+ * always fills the row even when there are few items. Gap/speed are set per
+ * instance via the --marquee-gap / --marquee-duration custom properties.
+ * ------------------------------------------------------------------ */
+@keyframes marquee-scroll {
   to {
-    transform: translateX(-50%);
+    transform: translateX(calc(-100% - var(--marquee-gap, 3.5rem)));
   }
 }
-@keyframes marquee-reverse {
-  from {
-    transform: translateX(-50%);
-  }
-  to {
-    transform: translateX(0);
-  }
+
+.marquee {
+  display: flex;
+  gap: var(--marquee-gap, 3.5rem);
+  overflow: hidden;
+}
+.marquee__group {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-around;
+  gap: var(--marquee-gap, 3.5rem);
+  min-width: 100%;
+  animation: marquee-scroll var(--marquee-duration, 42s) linear infinite;
+}
+.marquee__group--reverse {
+  animation-direction: reverse;
 }
 @keyframes aurora {
   0%,

@@ -1,10 +1,9 @@
 import { Container } from "@/components/ui/container";
+import { Marquee } from "@/components/ui/marquee";
 import { marqueeLogos } from "@/lib/site";
 
-/** Infinite auto-scrolling row of customer wordmarks (CSS marquee). */
+/** Infinite auto-scrolling row of customer wordmarks. */
 export function LogoMarquee() {
-  const row = [...marqueeLogos, ...marqueeLogos];
-
   return (
     <section className="py-14">
       <Container>
@@ -13,17 +12,17 @@ export function LogoMarquee() {
         </p>
       </Container>
 
-      <div className="mask-fade-edges relative mt-8 overflow-hidden">
-        <div className="flex w-max animate-marquee items-center gap-14 pr-14">
-          {row.map((logo, i) => (
+      <div className="mt-8">
+        <Marquee gap="3.5rem" durationSeconds={42}>
+          {marqueeLogos.map((logo) => (
             <span
-              key={i}
+              key={logo}
               className="shrink-0 text-xl font-semibold tracking-tight text-muted/50 transition-colors hover:text-foreground"
             >
               {logo}
             </span>
           ))}
-        </div>
+        </Marquee>
       </div>
     </section>
   );
