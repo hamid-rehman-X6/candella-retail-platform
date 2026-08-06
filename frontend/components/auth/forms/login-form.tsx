@@ -41,8 +41,8 @@ export function LoginForm() {
         router.push("/two-factor");
         return;
       }
-      // Signed in. TODO: route to /dashboard once it exists.
-      router.push("/");
+      // Signed in — the dashboard guard sends new users to onboarding.
+      router.push("/dashboard");
     } catch (err) {
       setLoading(false);
       if (err instanceof ApiError) {

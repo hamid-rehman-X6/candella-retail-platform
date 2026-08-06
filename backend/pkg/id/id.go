@@ -24,6 +24,8 @@ const (
 	PasswordResetTok Prefix = "prt"
 	MFABackupCode    Prefix = "bkp"
 	AuditLog         Prefix = "alog"
+	Tenant           Prefix = "tnt"
+	TenantMembership Prefix = "tmem"
 )
 
 // New returns a new prefixed ID, e.g. New(id.User) -> "usr_4f8K2mQpXrTz".

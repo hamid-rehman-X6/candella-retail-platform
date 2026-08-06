@@ -49,7 +49,7 @@ export function TwoFactorSetupForm() {
           return;
         }
         if (err instanceof ApiError && err.code === "mfa_already_enabled") {
-          router.replace("/");
+          router.replace("/dashboard");
           return;
         }
         setError(
@@ -119,7 +119,11 @@ export function TwoFactorSetupForm() {
           <CheckLine>Each code can only be used one time.</CheckLine>
         </ul>
 
-        <Button size="lg" className="w-full" onClick={() => router.push("/")}>
+        <Button
+          size="lg"
+          className="w-full"
+          onClick={() => router.push("/dashboard")}
+        >
           Finish setup
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Button>
@@ -242,7 +246,7 @@ export function TwoFactorSetupForm() {
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Button>
         <Link
-          href="/"
+          href="/dashboard"
           className="text-center text-sm text-muted transition-colors hover:text-accent"
         >
           Skip for now

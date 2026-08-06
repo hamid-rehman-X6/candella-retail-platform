@@ -30,7 +30,7 @@ export function TwoFactorForm() {
     try {
       await verifyTwoFactor({ mfaToken: mfaToken.get(), code: value });
       mfaToken.clear();
-      router.push("/");
+      router.push("/dashboard");
     } catch (err) {
       setVerifying(false);
       setCode("");
@@ -49,7 +49,7 @@ export function TwoFactorForm() {
     try {
       await verifyBackupCode({ mfaToken: mfaToken.get(), backupCode: backup });
       mfaToken.clear();
-      router.push("/");
+      router.push("/dashboard");
     } catch (err) {
       setVerifying(false);
       setError(err instanceof ApiError ? err.message : "Something went wrong.");

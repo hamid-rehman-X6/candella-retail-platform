@@ -17,6 +17,7 @@ import (
 	"candella-ecosystem/backend/internal/auth"
 	"candella-ecosystem/backend/internal/health"
 	appmiddleware "candella-ecosystem/backend/internal/middleware"
+	"candella-ecosystem/backend/internal/workspace"
 	"candella-ecosystem/backend/pkg/config"
 	"candella-ecosystem/backend/pkg/crypto"
 	"candella-ecosystem/backend/pkg/database"
@@ -68,6 +69,10 @@ func main() {
 	authSvc := auth.NewService(authRepo, mail, cfg, log, enc, challengeKey)
 	authHandler := auth.NewHandler(authSvc, cfg)
 
+	wsRepo := workspace.NewPostgresRepository(pool)
+	wsSvc := workspace.NewService(wsRepo)
+	wsHandler := workspace.NewHandler(wsSvc)
+
 	// 20 requests/min/IP on sensitive, unauthenticated auth endpoints.
 	authLimiter := appmiddleware.NewRateLimiter(20, time.Minute)
 
@@ -87,6 +92,7 @@ func main() {
 	r.Route("/api/v1", func(api chi.Router) {
 		health.Routes(api)
 		auth.Routes(api, authHandler, authLimiter.Middleware)
+		workspace.Routes(api, wsHandler, authHandler.RequireAuth)
 	})
 
 	srv := &http.Server{

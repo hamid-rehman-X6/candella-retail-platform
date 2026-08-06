@@ -56,5 +56,5 @@ func (h *Handler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setSessionCookie(w, h.cfg, res.RawToken, res.Expires)
-	http.Redirect(w, r, h.cfg.AppBaseURL+"/", http.StatusFound)
+	http.Redirect(w, r, h.cfg.AppBaseURL+"/dashboard", http.StatusFound)
 }

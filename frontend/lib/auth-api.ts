@@ -96,6 +96,33 @@ export function getMe() {
 /** Full URL to kick off the Google OAuth redirect flow. */
 export const googleStartUrl = `${API_BASE_URL}/api/v1/auth/google/start`;
 
+// ---- Workspaces ------------------------------------------------------------
+
+export type Workspace = {
+  id: string;
+  name: string;
+  slug: string;
+  industryType: string;
+  status: string;
+  currencyCode: string;
+  timezone: string;
+  role: string;
+  createdAt: string;
+};
+
+export function getWorkspaces() {
+  return apiGet<{ workspaces: Workspace[] }>("/workspaces");
+}
+
+export function createWorkspace(input: {
+  name: string;
+  industryType: string;
+  currencyCode?: string;
+  timezone?: string;
+}) {
+  return apiPost<{ workspace: Workspace }>("/workspaces", input);
+}
+
 // ---- Small helpers to carry state between auth steps (client-only) ---------
 
 const EMAIL_KEY = "candella:pending-email";
