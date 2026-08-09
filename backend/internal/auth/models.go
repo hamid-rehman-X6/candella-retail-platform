@@ -71,12 +71,3 @@ type OAuthAccount struct {
 	ProviderAccountID string
 	Email             *string
 }
-
-// AuditEntry is a security event to append to audit_logs.
-type AuditEntry struct {
-	UserID     *string
-	Action     string
-	EntityType string
-	EntityID   string
-	IPAddress  *string
-}

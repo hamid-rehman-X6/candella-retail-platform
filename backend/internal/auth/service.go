@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"candella-ecosystem/backend/internal/audit"
 	"candella-ecosystem/backend/pkg/config"
 	"candella-ecosystem/backend/pkg/crypto"
 	"candella-ecosystem/backend/pkg/mailer"
@@ -24,11 +25,12 @@ const (
 type Service struct {
 	repo         Repository
 	mailer       mailer.Mailer
+	auditor      *audit.Recorder
 	hasher       *Hasher
 	enc          *crypto.Encryptor // nil when TOTP_ENCRYPTION_KEY is not configured
 	cfg          config.Config
 	log          *slog.Logger
-	challengeKey []byte // HMAC key for stateless mfa/oauth challenges (per-process)
+	challengeKey []byte // HMAC key for stateless mfa/oauth challenges
 	google       *googleOAuth
 }
 
@@ -37,6 +39,7 @@ type Service struct {
 func NewService(
 	repo Repository,
 	m mailer.Mailer,
+	auditor *audit.Recorder,
 	cfg config.Config,
 	log *slog.Logger,
 	enc *crypto.Encryptor,
@@ -45,6 +48,7 @@ func NewService(
 	return &Service{
 		repo:         repo,
 		mailer:       m,
+		auditor:      auditor,
 		hasher:       NewHasher(cfg.Argon2MemoryKB, cfg.Argon2Time, cfg.Argon2Threads),
 		enc:          enc,
 		cfg:          cfg,
@@ -265,11 +269,14 @@ func (s *Service) checkCode(ctx context.Context, userID, purpose, code string) e
 	return s.repo.ConsumeVerificationCode(ctx, vc.ID, time.Now())
 }
 
-// audit writes a best-effort audit log entry; failures are logged, not returned.
+// audit appends a security event through the shared recorder, which fills in the
+// tenant, IP and user agent from the request context.
 func (s *Service) audit(ctx context.Context, userID *string, action, entityType, entityID string) {
-	if err := s.repo.InsertAuditLog(ctx, &AuditEntry{
-		UserID: userID, Action: action, EntityType: entityType, EntityID: entityID,
-	}); err != nil {
-		s.log.Warn("audit log failed", "action", action, "error", err)
-	}
+	s.auditor.Record(ctx, audit.Entry{
+		UserID:     userID,
+		ActorType:  audit.ActorUser,
+		Action:     action,
+		EntityType: entityType,
+		EntityID:   entityID,
+	})
 }

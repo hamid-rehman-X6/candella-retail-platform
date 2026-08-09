@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -44,6 +45,23 @@ func (r *repoPostgres) CreateWithOwner(ctx context.Context, w *Workspace, ownerU
 			id.New(id.TenantMembership), w.ID, ownerUserID)
 		return err
 	})
+}
+
+func (r *repoPostgres) GetMembership(ctx context.Context, userID, tenantID string) (*Membership, error) {
+	var m Membership
+	err := r.db.QueryRow(ctx, `
+		SELECT m.tenant_id, t.slug, m.role, t.status
+		FROM tenant_memberships m
+		JOIN tenants t ON t.id = m.tenant_id AND t.deleted_at IS NULL
+		WHERE m.user_id = $1 AND m.tenant_id = $2 AND m.status = 'active'`,
+		userID, tenantID).Scan(&m.TenantID, &m.Slug, &m.Role, &m.TenantStatus)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNoMembership
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
 }
 
 func (r *repoPostgres) ListForUser(ctx context.Context, userID string) ([]Workspace, error) {

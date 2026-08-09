@@ -12,4 +12,8 @@ type Repository interface {
 	// ListForUser returns every workspace the user is an active member of, newest
 	// first, each annotated with that user's role.
 	ListForUser(ctx context.Context, userID string) ([]Workspace, error)
+	// GetMembership returns the user's active membership of one live tenant, or
+	// ErrNoMembership. This is the authority that turns a client-supplied tenant
+	// ID into a trusted one.
+	GetMembership(ctx context.Context, userID, tenantID string) (*Membership, error)
 }

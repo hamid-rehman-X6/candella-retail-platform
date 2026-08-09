@@ -70,6 +70,20 @@ func (s *Service) List(ctx context.Context, userID string) ([]Workspace, error) 
 	return s.repo.ListForUser(ctx, userID)
 }
 
+// ResolveMembership verifies that the user is an active member of the tenant and
+// that the tenant is usable. A suspended workspace resolves to a distinct error
+// so the UI can explain the situation rather than pretending it doesn't exist.
+func (s *Service) ResolveMembership(ctx context.Context, userID, tenantID string) (*Membership, error) {
+	m, err := s.repo.GetMembership(ctx, userID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if m.TenantStatus == "suspended" || m.TenantStatus == "cancelled" {
+		return nil, ErrTenantSuspended
+	}
+	return m, nil
+}
+
 // uniqueSlug derives a URL-safe slug from the name, appending a short random
 // suffix if the base slug is already taken.
 func (s *Service) uniqueSlug(ctx context.Context, name string) (string, error) {

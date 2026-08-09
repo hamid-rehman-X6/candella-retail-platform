@@ -13,10 +13,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { LogoMark } from "@/components/ui/logo";
+import { useApp, workspacePath } from "@/components/app/app-context";
 import { cn } from "@/lib/cn";
 
-const mainNav: { label: string; href: string; icon: LucideIcon }[] = [
-  { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
+// Paths are relative to the current workspace; the sidebar prefixes them.
+const mainNav: { label: string; path: string; icon: LucideIcon }[] = [
+  { label: "Overview", path: "", icon: LayoutDashboard },
 ];
 
 // Business modules ship later; shown now so the shell reads as a real app.
@@ -49,6 +51,8 @@ export function Sidebar({
   onClose: () => void;
 }) {
   const pathname = usePathname();
+  const { current } = useApp();
+  const home = workspacePath(current.slug);
 
   return (
     <>
@@ -69,7 +73,7 @@ export function Sidebar({
       >
         <div className="flex h-16 shrink-0 items-center justify-between px-5">
           <Link
-            href="/dashboard"
+            href={home}
             className="flex items-center gap-2.5"
             onClick={onClose}
           >
@@ -89,12 +93,13 @@ export function Sidebar({
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {mainNav.map((item) => {
-            const active = pathname === item.href;
+            const href = workspacePath(current.slug, item.path);
+            const active = pathname === href;
             const Icon = item.icon;
             return (
               <Link
                 key={item.label}
-                href={item.href}
+                href={href}
                 onClick={onClose}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",

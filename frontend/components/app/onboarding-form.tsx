@@ -43,7 +43,7 @@ export function OnboardingForm({
       toast.success(`${workspace.name} is ready`, {
         description: "Your workspace has been created.",
       });
-      router.push("/dashboard");
+      router.push(`/w/${workspace.slug}`);
       router.refresh();
     } catch (err) {
       setLoading(false);

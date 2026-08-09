@@ -17,6 +17,18 @@ export class ApiError extends Error {
   }
 }
 
+/** Header naming the workspace a request acts within (see backend RequireTenant). */
+export const TENANT_HEADER = "X-Tenant-Id";
+
+type FetchOptions = RequestInit & {
+  /**
+   * The workspace this call belongs to. Passed explicitly on every tenant-scoped
+   * call rather than read from a global: with ambient state, two tabs open on two
+   * workspaces race over one value and writes land in the wrong tenant.
+   */
+  tenantId?: string;
+};
+
 /**
  * Calls the backend and unwraps the shared `{ success, data | error }` envelope.
  * Always sends cookies (`credentials: "include"`) so the httpOnly session cookie
@@ -24,16 +36,19 @@ export class ApiError extends Error {
  */
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {},
+  options: FetchOptions = {},
 ): Promise<T> {
+  const { tenantId, ...init } = options;
+
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}/api/v1${path}`, {
-      ...options,
+      ...init,
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        ...(options.headers ?? {}),
+        ...(tenantId ? { [TENANT_HEADER]: tenantId } : {}),
+        ...(init.headers ?? {}),
       },
     });
   } catch {
@@ -59,13 +74,18 @@ export async function apiFetch<T>(
   return body.data;
 }
 
-export function apiPost<T>(path: string, data?: unknown): Promise<T> {
+export function apiPost<T>(
+  path: string,
+  data?: unknown,
+  tenantId?: string,
+): Promise<T> {
   return apiFetch<T>(path, {
     method: "POST",
     body: data !== undefined ? JSON.stringify(data) : undefined,
+    tenantId,
   });
 }
 
-export function apiGet<T>(path: string): Promise<T> {
-  return apiFetch<T>(path, { method: "GET" });
+export function apiGet<T>(path: string, tenantId?: string): Promise<T> {
+  return apiFetch<T>(path, { method: "GET", tenantId });
 }

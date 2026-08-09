@@ -11,7 +11,7 @@ import {
   LogOut,
   Loader2,
 } from "lucide-react";
-import { useApp } from "@/components/app/app-context";
+import { useApp, workspacePath } from "@/components/app/app-context";
 import { logout } from "@/lib/auth-api";
 import { clearSession } from "@/lib/session-store";
 import { toast } from "@/lib/toast";
@@ -21,8 +21,7 @@ import { cn } from "@/lib/cn";
 
 export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const router = useRouter();
-  const { user, workspaces, currentWorkspace, setCurrentWorkspaceId } =
-    useApp();
+  const { user, workspaces, current } = useApp();
   const [wsOpen, setWsOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -54,17 +53,17 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
       <div className="relative">
         <button
           onClick={() => setWsOpen((v) => !v)}
-          className="flex items-center gap-2.5 rounded-xl border border-line bg-white/[0.03] px-3 py-2 text-left transition-colors hover:border-line-strong"
+          className="flex items-center gap-2.5 rounded-xl border border-line bg-white/3 px-3 py-2 text-left transition-colors hover:border-line-strong"
         >
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-linear-to-br from-accent-bright to-accent-deep text-xs font-bold text-black">
-            {currentWorkspace.name.charAt(0).toUpperCase()}
+            {current.name.charAt(0).toUpperCase()}
           </span>
           <span className="hidden sm:block">
-            <span className="block max-w-[12rem] truncate text-sm font-medium text-foreground">
-              {currentWorkspace.name}
+            <span className="block max-w-48 truncate text-sm font-medium text-foreground">
+              {current.name}
             </span>
             <span className="block text-[11px] text-subtle">
-              {industryLabel(currentWorkspace.industryType)}
+              {industryLabel(current.industryType)}
             </span>
           </span>
           <ChevronsUpDown className="h-4 w-4 text-subtle" />
@@ -80,13 +79,12 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
               <p className="px-3 py-2 text-xs tracking-wide text-subtle uppercase">
                 Workspaces
               </p>
+              {/* Switching is navigation, not state — the URL is the workspace. */}
               {workspaces.map((ws) => (
-                <button
+                <Link
                   key={ws.id}
-                  onClick={() => {
-                    setCurrentWorkspaceId(ws.id);
-                    setWsOpen(false);
-                  }}
+                  href={workspacePath(ws.slug)}
+                  onClick={() => setWsOpen(false)}
                   className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-white/5"
                 >
                   <span className="min-w-0">
@@ -97,10 +95,10 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
                       {industryLabel(ws.industryType)} · {ws.role}
                     </span>
                   </span>
-                  {ws.id === currentWorkspace.id && (
+                  {ws.id === current.id && (
                     <Check className="h-4 w-4 shrink-0 text-accent" />
                   )}
-                </button>
+                </Link>
               ))}
               <div className="my-1 h-px bg-line" />
               <Link

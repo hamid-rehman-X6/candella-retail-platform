@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, TENANT_HEADER } from "@/lib/api";
 import type { AuthUser, Workspace } from "@/lib/auth-api";
 
 /**
@@ -9,11 +9,17 @@ import type { AuthUser, Workspace } from "@/lib/auth-api";
  * flash, and the httpOnly cookie is never exposed to client JS.
  */
 
-async function serverFetch<T>(path: string): Promise<T | null> {
+export async function serverFetch<T>(
+  path: string,
+  tenantId?: string,
+): Promise<T | null> {
   const cookieHeader = (await cookies()).toString();
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1${path}`, {
-      headers: { Cookie: cookieHeader },
+      headers: {
+        Cookie: cookieHeader,
+        ...(tenantId ? { [TENANT_HEADER]: tenantId } : {}),
+      },
       cache: "no-store",
     });
     if (!res.ok) return null;

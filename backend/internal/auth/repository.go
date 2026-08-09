@@ -54,7 +54,4 @@ type Repository interface {
 	// OAuth
 	GetOAuthAccount(ctx context.Context, provider, providerAccountID string) (*OAuthAccount, error)
 	CreateOAuthAccount(ctx context.Context, a *OAuthAccount) error
-
-	// Audit
-	InsertAuditLog(ctx context.Context, e *AuditEntry) error
 }

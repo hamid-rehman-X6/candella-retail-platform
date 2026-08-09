@@ -18,3 +18,12 @@ type Workspace struct {
 	Role         string // the requesting user's role: owner | admin | member
 	CreatedAt    time.Time
 }
+
+// Membership is a verified link between a user and a live tenant. It is what the
+// tenant middleware returns when a client-supplied tenant ID checks out.
+type Membership struct {
+	TenantID     string
+	Slug         string
+	Role         string
+	TenantStatus string // active | trialing | suspended | cancelled
+}

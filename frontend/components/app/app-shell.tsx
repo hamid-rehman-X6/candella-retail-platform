@@ -14,16 +14,18 @@ import type { AuthUser, Workspace } from "@/lib/auth-api";
 export function AppShell({
   user,
   workspaces,
+  current,
   children,
 }: {
   user: AuthUser;
   workspaces: Workspace[];
+  current: Workspace;
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <AppProvider user={user} workspaces={workspaces}>
+    <AppProvider user={user} workspaces={workspaces} current={current}>
       <div className="min-h-screen bg-canvas">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="lg:pl-64">

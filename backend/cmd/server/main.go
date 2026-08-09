@@ -17,9 +17,11 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
+	"candella-ecosystem/backend/internal/audit"
 	"candella-ecosystem/backend/internal/auth"
 	"candella-ecosystem/backend/internal/health"
 	appmiddleware "candella-ecosystem/backend/internal/middleware"
+	"candella-ecosystem/backend/internal/platform"
 	"candella-ecosystem/backend/internal/workspace"
 	"candella-ecosystem/backend/pkg/config"
 	"candella-ecosystem/backend/pkg/crypto"
@@ -66,13 +68,22 @@ func main() {
 
 	mail := mailer.New(cfg.Mailer, cfg.ResendAPIKey, cfg.EmailFrom, log)
 
+	// The single writer to audit_logs, shared by every slice.
+	auditor := audit.NewRecorder(pool, log)
+
 	authRepo := auth.NewPostgresRepository(pool)
-	authSvc := auth.NewService(authRepo, mail, cfg, log, enc, challengeKey)
+	authSvc := auth.NewService(authRepo, mail, auditor, cfg, log, enc, challengeKey)
 	authHandler := auth.NewHandler(authSvc, cfg)
 
 	wsRepo := workspace.NewPostgresRepository(pool)
 	wsSvc := workspace.NewService(wsRepo)
 	wsHandler := workspace.NewHandler(wsSvc)
+
+	// The platform console reads across every tenant. It will move to its own
+	// pool running as a dedicated DB role once RLS lands (see the architecture
+	// plan §3.2); the seam is here so that's a wiring change, not a refactor.
+	platformSvc := platform.NewService(platform.NewPostgresRepository(pool))
+	platformHandler := platform.NewHandler(platformSvc, auditor, log)
 
 	// 20 requests/min/IP on sensitive, unauthenticated auth endpoints.
 	authLimiter := appmiddleware.NewRateLimiter(20, time.Minute)
@@ -83,6 +94,8 @@ func main() {
 	r.Use(chimiddleware.RealIP)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(30 * time.Second))
+	// After RealIP, so audited IPs reflect any trusted proxy headers.
+	r.Use(audit.Middleware)
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{cfg.AllowedCORS},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -94,6 +107,7 @@ func main() {
 		health.Routes(api)
 		auth.Routes(api, authHandler, authLimiter.Middleware)
 		workspace.Routes(api, wsHandler, authHandler.RequireAuth)
+		platform.Routes(api, platformHandler, authHandler.RequireAuth)
 	})
 
 	srv := &http.Server{

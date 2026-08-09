@@ -292,12 +292,4 @@ func (r *repoPostgres) CreateOAuthAccount(ctx context.Context, a *OAuthAccount) 
 	return err
 }
 
-// ----- Audit ---------------------------------------------------------------
-
-func (r *repoPostgres) InsertAuditLog(ctx context.Context, e *AuditEntry) error {
-	_, err := r.db.Exec(ctx, `
-		INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, ip_address)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
-		id.New(id.AuditLog), e.UserID, e.Action, e.EntityType, e.EntityID, e.IPAddress)
-	return err
-}
+// Audit writes go through internal/audit, the single writer to audit_logs.
