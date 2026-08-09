@@ -10,6 +10,7 @@ import { TextField } from "@/components/auth/text-field";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { verifyTwoFactor, verifyBackupCode, mfaToken } from "@/lib/auth-api";
+import { setSessionUser } from "@/lib/session-store";
 
 export function TwoFactorForm() {
   const router = useRouter();
@@ -28,7 +29,11 @@ export function TwoFactorForm() {
     setVerifying(true);
     setError(undefined);
     try {
-      await verifyTwoFactor({ mfaToken: mfaToken.get(), code: value });
+      const res = await verifyTwoFactor({
+        mfaToken: mfaToken.get(),
+        code: value,
+      });
+      setSessionUser(res.user);
       mfaToken.clear();
       router.push("/dashboard");
     } catch (err) {
@@ -47,7 +52,11 @@ export function TwoFactorForm() {
     setVerifying(true);
     setError(undefined);
     try {
-      await verifyBackupCode({ mfaToken: mfaToken.get(), backupCode: backup });
+      const res = await verifyBackupCode({
+        mfaToken: mfaToken.get(),
+        backupCode: backup,
+      });
+      setSessionUser(res.user);
       mfaToken.clear();
       router.push("/dashboard");
     } catch (err) {

@@ -37,5 +37,11 @@ var (
 	ErrMFAUnavailable    = newError(http.StatusServiceUnavailable, "mfa_unavailable", "Two-factor authentication isn't available right now.")
 	ErrMFAAlreadyEnabled = newError(http.StatusConflict, "mfa_already_enabled", "Two-factor authentication is already enabled.")
 	ErrGoogleDisabled    = newError(http.StatusBadRequest, "google_not_configured", "Google sign-in is not configured.")
-	ErrRateLimited       = newError(http.StatusTooManyRequests, "rate_limited", "Too many requests. Please slow down and try again.")
+
+	ErrGoogleEmailUnverified = newError(http.StatusForbidden, "google_email_unverified",
+		"Your Google account's email address isn't verified. Verify it with Google, then try again.")
+	ErrGoogleLinkBlocked = newError(http.StatusConflict, "google_link_blocked",
+		"An account with this email already exists but hasn't been verified. Sign in with your password first.")
+
+	ErrRateLimited = newError(http.StatusTooManyRequests, "rate_limited", "Too many requests. Please slow down and try again.")
 )

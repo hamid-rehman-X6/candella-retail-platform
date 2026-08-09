@@ -1,5 +1,7 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
+
 function GoogleIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
@@ -28,20 +30,32 @@ export function GoogleButton({
   onClick,
   label = "Continue with Google",
   disabled,
+  loading,
 }: {
   onClick?: () => void;
   label?: string;
   disabled?: boolean;
+  /** Shown while the browser is leaving for Google's consent screen. */
+  loading?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled}
+      disabled={disabled || loading}
       className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-full border border-line bg-white/5 text-sm font-medium text-foreground transition-all hover:border-line-strong hover:bg-white/10 disabled:pointer-events-none disabled:opacity-50"
     >
-      <GoogleIcon />
-      {label}
+      {loading ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Connecting to Google…
+        </>
+      ) : (
+        <>
+          <GoogleIcon />
+          {label}
+        </>
+      )}
     </button>
   );
 }

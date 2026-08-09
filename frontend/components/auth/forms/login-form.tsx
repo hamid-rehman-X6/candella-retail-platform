@@ -13,16 +13,24 @@ import { Button } from "@/components/ui/button";
 import { isValidEmail } from "@/lib/validation";
 import { ApiError } from "@/lib/api";
 import { login, googleStartUrl, pendingEmail, mfaToken } from "@/lib/auth-api";
+import { setSessionUser } from "@/lib/session-store";
+import { authErrorCopy } from "@/lib/auth-errors";
 
-export function LoginForm() {
+type Alert = { title?: string; description: string };
+
+/** `errorCode` arrives in the URL when a redirect flow (Google) failed. */
+export function LoginForm({ errorCode }: { errorCode?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string }>(
     {},
   );
-  const [formError, setFormError] = useState<string>();
+  const [formError, setFormError] = useState<Alert | undefined>(
+    errorCode ? authErrorCopy(errorCode) : undefined,
+  );
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,6 +50,7 @@ export function LoginForm() {
         return;
       }
       // Signed in — the dashboard guard sends new users to onboarding.
+      if (res.user) setSessionUser(res.user);
       router.push("/dashboard");
     } catch (err) {
       setLoading(false);
@@ -51,14 +60,17 @@ export function LoginForm() {
           router.push("/verify-email");
           return;
         }
-        setFormError(err.message);
+        setFormError({ description: err.message });
       } else {
-        setFormError("Something went wrong. Please try again.");
+        setFormError({
+          description: "Something went wrong. Please try again.",
+        });
       }
     }
   }
 
   function handleGoogle() {
+    setGoogleLoading(true);
     window.location.href = googleStartUrl;
   }
 
@@ -69,13 +81,23 @@ export function LoginForm() {
         subtitle="Sign in to your Candella workspace to keep every counter running."
       />
 
-      <GoogleButton onClick={handleGoogle} disabled={loading} />
+      <GoogleButton
+        onClick={handleGoogle}
+        disabled={loading}
+        loading={googleLoading}
+      />
       <Divider />
 
       {formError && (
-        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {formError}
-        </p>
+        <div
+          role="alert"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
+        >
+          {formError.title && <p className="font-medium">{formError.title}</p>}
+          <p className={formError.title ? "mt-0.5 text-red-300/80" : undefined}>
+            {formError.description}
+          </p>
+        </div>
       )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">

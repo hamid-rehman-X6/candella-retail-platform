@@ -36,6 +36,11 @@ type Config struct {
 	// Two-factor auth — base64 32-byte AES-256-GCM key encrypting TOTP secrets.
 	TOTPEncryptionKey string
 
+	// Stateless challenges (the 2FA hand-off token and the OAuth state
+	// parameter) — base64 32-byte HMAC key. Must be stable across restarts and
+	// identical on every instance; required in production.
+	ChallengeSigningKey string
+
 	// One-time codes / tokens
 	EmailCodeTTL  time.Duration
 	ResetTokenTTL time.Duration
@@ -78,7 +83,8 @@ func Load() Config {
 		Argon2Time:     uint32(getenvInt("ARGON2_TIME", 3)),
 		Argon2Threads:  uint8(getenvInt("ARGON2_THREADS", 2)),
 
-		TOTPEncryptionKey: getenv("TOTP_ENCRYPTION_KEY", ""),
+		TOTPEncryptionKey:   getenv("TOTP_ENCRYPTION_KEY", ""),
+		ChallengeSigningKey: getenv("CHALLENGE_SIGNING_KEY", ""),
 
 		EmailCodeTTL:  time.Duration(getenvInt("EMAIL_CODE_TTL_MINUTES", 10)) * time.Minute,
 		ResetTokenTTL: time.Duration(getenvInt("RESET_TOKEN_TTL_MINUTES", 30)) * time.Minute,

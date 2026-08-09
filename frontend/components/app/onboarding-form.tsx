@@ -2,16 +2,24 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { LogoMark } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/auth/text-field";
 import { industries } from "@/lib/industries";
 import { ApiError } from "@/lib/api";
 import { createWorkspace } from "@/lib/auth-api";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 
-export function OnboardingForm({ userName }: { userName: string }) {
+export function OnboardingForm({
+  userName,
+  signedInWith,
+}: {
+  userName: string;
+  /** Email to confirm in the banner, when arriving straight from Google. */
+  signedInWith?: string;
+}) {
   const router = useRouter();
   const firstName = userName.split(" ")[0] || userName;
   const [name, setName] = useState("");
@@ -28,7 +36,13 @@ export function OnboardingForm({ userName }: { userName: string }) {
     setError(undefined);
     setLoading(true);
     try {
-      await createWorkspace({ name, industryType: industry });
+      const { workspace } = await createWorkspace({
+        name,
+        industryType: industry,
+      });
+      toast.success(`${workspace.name} is ready`, {
+        description: "Your workspace has been created.",
+      });
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
@@ -53,6 +67,18 @@ export function OnboardingForm({ userName }: { userName: string }) {
           change any of this later.
         </p>
       </div>
+
+      {signedInWith && (
+        <div className="mt-6 flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
+          <CheckCircle2 className="h-4.5 w-4.5 shrink-0 text-emerald-400" />
+          <p className="min-w-0 text-sm text-emerald-200/90">
+            Signed in with Google as{" "}
+            <span className="font-medium break-all text-emerald-100">
+              {signedInWith}
+            </span>
+          </p>
+        </div>
+      )}
 
       {error && (
         <p className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">

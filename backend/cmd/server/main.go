@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -55,11 +58,9 @@ func main() {
 		}
 	}
 
-	// Per-process HMAC key for stateless mfa/oauth challenges. Regenerated on
-	// restart (only invalidates in-flight <5-min challenges — acceptable).
-	challengeKey := make([]byte, 32)
-	if _, err := rand.Read(challengeKey); err != nil {
-		log.Error("challenge key generation failed", "error", err)
+	challengeKey, err := resolveChallengeKey(cfg, log)
+	if err != nil {
+		log.Error("challenge key unavailable", "error", err)
 		os.Exit(1)
 	}
 
@@ -125,4 +126,37 @@ func main() {
 	}
 
 	log.Info("shutdown complete")
+}
+
+// resolveChallengeKey returns the HMAC key used to sign the stateless challenges
+// issued during sign-in: the 2FA hand-off token and the OAuth state parameter.
+//
+// The key must be stable across restarts and identical on every instance. A
+// random per-process key silently breaks two things: a sign-in already in
+// flight fails after a redeploy (the callback can't verify its own state), and
+// running more than one instance is impossible, because instance B can't verify
+// a challenge signed by instance A. Production therefore requires it to be set.
+func resolveChallengeKey(cfg config.Config, log *slog.Logger) ([]byte, error) {
+	if cfg.ChallengeSigningKey != "" {
+		key, err := base64.StdEncoding.DecodeString(cfg.ChallengeSigningKey)
+		if err != nil {
+			return nil, fmt.Errorf("CHALLENGE_SIGNING_KEY is not valid base64: %w", err)
+		}
+		if len(key) < 32 {
+			return nil, fmt.Errorf("CHALLENGE_SIGNING_KEY must decode to at least 32 bytes, got %d", len(key))
+		}
+		return key, nil
+	}
+
+	if cfg.IsProduction() {
+		return nil, errors.New("CHALLENGE_SIGNING_KEY is required in production")
+	}
+
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return nil, fmt.Errorf("generating a fallback challenge key: %w", err)
+	}
+	log.Warn("CHALLENGE_SIGNING_KEY is not set — using a random key for this process; " +
+		"sign-ins started before a restart will fail. Set one in backend/.env.")
+	return key, nil
 }

@@ -22,9 +22,18 @@ func (s *Service) GoogleAuthURL() (string, error) {
 	return s.google.authCodeURL(state), nil
 }
 
+// googleResult is the outcome of a completed Google sign-in. IsNewUser lets the
+// caller tell a first-ever sign-up apart from a return visit, so the frontend
+// can greet the two differently.
+type googleResult struct {
+	Login     *loginResult
+	IsNewUser bool
+}
+
 // CompleteGoogleLogin validates the callback, resolves (or creates+links) the
-// Candella user for the Google identity, and starts a session.
-func (s *Service) CompleteGoogleLogin(ctx context.Context, code, state string) (*loginResult, error) {
+// Candella user for the Google identity, and starts a session — unless the
+// account has 2FA enabled, in which case it returns an mfaToken instead.
+func (s *Service) CompleteGoogleLogin(ctx context.Context, code, state string) (*googleResult, error) {
 	if s.google == nil || !s.google.enabled {
 		return nil, ErrGoogleDisabled
 	}
@@ -36,6 +45,11 @@ func (s *Service) CompleteGoogleLogin(ctx context.Context, code, state string) (
 	if err != nil {
 		return nil, ErrTokenInvalid
 	}
+	// Google's own verification is the only thing that makes this email safe to
+	// use as an account identifier — an unverified one may belong to someone else.
+	if profile.Email == "" || !profile.VerifiedEmail {
+		return nil, ErrGoogleEmailUnverified
+	}
 
 	// 1. Already linked to a Google account → log that user in.
 	if acc, err := s.repo.GetOAuthAccount(ctx, providerGoogle, profile.Sub); err == nil {
@@ -43,17 +57,25 @@ func (s *Service) CompleteGoogleLogin(ctx context.Context, code, state string) (
 		if err != nil {
 			return nil, err
 		}
-		return s.startSession(ctx, user)
+		return s.finishGoogleLogin(ctx, user, false)
 	} else if !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
 
-	// 2. A local account with the same email exists → link Google to it.
+	// 2. A local account with the same email exists → link Google to it, but only
+	//    if that account has itself proven ownership of the address. Linking into
+	//    an unverified account would let an attacker pre-register someone's email
+	//    and silently inherit them when they later sign in with Google
+	//    (account pre-hijacking).
 	if user, err := s.repo.GetUserByEmail(ctx, profile.Email); err == nil {
+		if !user.IsEmailVerified() {
+			return nil, ErrGoogleLinkBlocked
+		}
 		if err := s.linkGoogle(ctx, user.ID, profile); err != nil {
 			return nil, err
 		}
-		return s.startSession(ctx, user)
+		s.audit(ctx, &user.ID, "user.linked_google", "user", user.ID)
+		return s.finishGoogleLogin(ctx, user, false)
 	} else if !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
@@ -73,7 +95,27 @@ func (s *Service) CompleteGoogleLogin(ctx context.Context, code, state string) (
 		return nil, err
 	}
 	s.audit(ctx, &user.ID, "user.registered_google", "user", user.ID)
-	return s.startSession(ctx, user)
+	return s.finishGoogleLogin(ctx, user, true)
+}
+
+// finishGoogleLogin starts the session — unless the account has 2FA enabled.
+// Google proves only the first factor, so a user who set up an authenticator
+// still owes us a code, exactly as password login requires. (A brand-new
+// account can't have 2FA yet, so the sign-up path always lands in a session.)
+func (s *Service) finishGoogleLogin(ctx context.Context, user *User, isNew bool) (*googleResult, error) {
+	if user.MFAEnabled {
+		token := signChallenge(s.challengeKey, user.ID, purposeMFALogin, 5*time.Minute)
+		return &googleResult{
+			Login:     &loginResult{MFARequired: true, MFAToken: token},
+			IsNewUser: isNew,
+		}, nil
+	}
+
+	res, err := s.startSession(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	return &googleResult{Login: res, IsNewUser: isNew}, nil
 }
 
 func (s *Service) linkGoogle(ctx context.Context, userID string, profile *googleUser) error {

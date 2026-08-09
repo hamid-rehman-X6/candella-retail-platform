@@ -28,6 +28,7 @@ export function SignupForm() {
   }>({});
   const [formError, setFormError] = useState<string>();
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,6 +63,7 @@ export function SignupForm() {
   }
 
   function handleGoogle() {
+    setGoogleLoading(true);
     window.location.href = googleStartUrl;
   }
 
@@ -76,6 +78,7 @@ export function SignupForm() {
         label="Sign up with Google"
         onClick={handleGoogle}
         disabled={loading}
+        loading={googleLoading}
       />
       <Divider />
 

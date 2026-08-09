@@ -12,12 +12,15 @@ import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
 import { DashboardMockup } from "@/components/landing/dashboard-mockup";
 import { trustFeatures } from "@/lib/site";
+import { useSession } from "@/lib/session-store";
 
 const headline = ["One", "platform,", "every", "retail", "business."];
 
 export function Hero() {
   const ref = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
+  const session = useSession();
+  const authed = session.status === "authenticated";
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start start", "end start"],
@@ -105,8 +108,8 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.82 }}
             className="mt-9 flex flex-col items-center gap-3 sm:flex-row"
           >
-            <Button href="/signup" size="lg">
-              Start free trial
+            <Button href={authed ? "/dashboard" : "/signup"} size="lg">
+              {authed ? "Go to your dashboard" : "Start free trial"}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Button>
             <Button href="#ecosystem" variant="secondary" size="lg">

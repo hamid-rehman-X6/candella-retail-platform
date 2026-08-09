@@ -9,6 +9,7 @@ import { OtpInput } from "@/components/auth/otp-input";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { verifyEmail, resendVerification, pendingEmail } from "@/lib/auth-api";
+import { setSessionUser } from "@/lib/session-store";
 import { useSessionValue } from "@/lib/use-session-value";
 
 const RESEND_SECONDS = 30;
@@ -33,7 +34,8 @@ export function VerifyEmailForm() {
     setVerifying(true);
     setError(undefined);
     try {
-      await verifyEmail({ email, code: value });
+      const res = await verifyEmail({ email, code: value });
+      setSessionUser(res.user);
       pendingEmail.clear();
       // Verified + signed in — prompt to secure the account with 2FA.
       router.push("/two-factor/setup");

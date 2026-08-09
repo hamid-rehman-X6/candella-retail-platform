@@ -13,15 +13,11 @@ import {
 } from "lucide-react";
 import { useApp } from "@/components/app/app-context";
 import { logout } from "@/lib/auth-api";
+import { clearSession } from "@/lib/session-store";
+import { toast } from "@/lib/toast";
 import { industryLabel } from "@/lib/industries";
+import { initials } from "@/lib/user-name";
 import { cn } from "@/lib/cn";
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const a = parts[0]?.charAt(0) ?? "";
-  const b = parts.length > 1 ? (parts[parts.length - 1]?.charAt(0) ?? "") : "";
-  return (a + b).toUpperCase() || "U";
-}
 
 export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const router = useRouter();
@@ -38,6 +34,8 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
     } catch {
       /* even if the call fails, send them to login */
     }
+    clearSession(); // so the public pages stop showing the Dashboard shortcut
+    toast.success("Signed out", { description: "See you next time." });
     router.push("/login");
     router.refresh();
   }

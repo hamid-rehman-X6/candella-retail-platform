@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Preloader } from "@/components/ui/preloader";
+import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -60,6 +61,7 @@ export default function RootLayout({
       <body className="min-h-screen antialiased">
         <Preloader />
         {children}
+        <Toaster />
       </body>
     </html>
   );

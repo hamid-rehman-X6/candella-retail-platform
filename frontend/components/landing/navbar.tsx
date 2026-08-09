@@ -7,10 +7,14 @@ import {
   useScroll,
   useMotionValueEvent,
 } from "motion/react";
-import { Menu, X, ArrowRight } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
-import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
+import {
+  NavAuth,
+  NavAuthAvatar,
+  NavAuthMobile,
+} from "@/components/landing/nav-auth";
 import { navLinks } from "@/lib/site";
 import { cn } from "@/lib/cn";
 
@@ -62,23 +66,18 @@ export function Navbar() {
             ))}
           </ul>
 
-          <div className="hidden items-center gap-2 lg:flex">
-            <Button href="/login" variant="ghost" size="sm">
-              Sign in
-            </Button>
-            <Button href="/signup" size="sm">
-              Get started
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Button>
-          </div>
+          <NavAuth />
 
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-white/5 lg:hidden"
-            aria-label={open ? "Close menu" : "Open menu"}
-          >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          <div className="flex items-center gap-2 lg:hidden">
+            <NavAuthAvatar />
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-white/5"
+              aria-label={open ? "Close menu" : "Open menu"}
+            >
+              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </nav>
       </Container>
 
@@ -120,20 +119,7 @@ export function Navbar() {
                   </motion.li>
                 ))}
               </ul>
-              <div className="mt-6 flex flex-col gap-3">
-                <Button
-                  href="/login"
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => setOpen(false)}
-                >
-                  Sign in
-                </Button>
-                <Button href="/signup" size="lg" onClick={() => setOpen(false)}>
-                  Get started
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <NavAuthMobile onNavigate={() => setOpen(false)} />
             </motion.div>
           </motion.div>
         )}

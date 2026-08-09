@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/cn";
 
 type Variant = "primary" | "secondary" | "ghost";
@@ -46,6 +47,15 @@ export function Button({
   const classes = cn(base, variants[variant], sizes[size], className);
 
   if (href) {
+    // Route links go through next/link (prefetch + client-side nav); in-page
+    // anchors like "#pricing" stay plain <a> so the browser handles scrolling.
+    if (href.startsWith("/")) {
+      return (
+        <Link href={href} className={classes} onClick={onClick} {...rest}>
+          {children}
+        </Link>
+      );
+    }
     return (
       <a href={href} className={classes} onClick={onClick} {...rest}>
         {children}
