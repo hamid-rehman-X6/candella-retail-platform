@@ -97,7 +97,6 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ":workspace"
-          allow-bots: true
           allow-bot-users: ${{ vars.CANDELLA_APP_BOT_LOGIN }}
           prompt-file: .agent-prompt.md
       - name: Publish feature branch and PR

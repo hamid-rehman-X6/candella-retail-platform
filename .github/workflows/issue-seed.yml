@@ -48,7 +48,8 @@ jobs:
               }
               const marker = `<!-- candella-roadmap:${entry.id} -->`;
               if (existing.some(item => !item.pull_request && item.body?.includes(marker))) continue;
-              const body = `${marker}\n## User need\n${entry.userNeed}\n\n## Acceptance criteria\n${entry.acceptance.join('\n')}\n\n## Verification\n${entry.verification.join('\n')}\n\n## Dependencies / rollout\n${entry.rollout || 'None recorded.'}`;
+              const bullets = items => items.map(item => `- ${item}`).join('\n');
+              const body = `${marker}\n## User need\n${entry.userNeed}\n\n## Acceptance criteria\n${bullets(entry.acceptance)}\n\n## Verification\n${bullets(entry.verification)}\n\n## Dependencies / rollout\n${entry.rollout || 'None recorded.'}`;
               await github.rest.issues.create({
                 owner, repo, title: entry.title, body,
                 labels: [`priority:${entry.priority}`, 'agent:triage']
