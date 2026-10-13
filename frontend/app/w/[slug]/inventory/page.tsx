@@ -258,7 +258,8 @@ export default function InventoryPage() {
       <section>
         <h2 className="text-lg font-semibold">Recent movements</h2>
         <p className="mt-1 text-sm text-muted">
-          Receipts and count corrections appear here after they are saved.
+          Stock receipts, count corrections and sales appear here after they are
+          saved.
         </p>
         <div className="mt-4 space-y-2">
           {movements.length === 0 ? (
@@ -276,10 +277,22 @@ export default function InventoryPage() {
                     {m.productName} · {m.variantName}
                   </p>
                   <p className="mt-1 text-muted">
-                    {m.kind === "receive" ? "Received" : "Count corrected"} ·{" "}
-                    {m.sku} · {new Date(m.createdAt).toLocaleString()}
+                    {m.kind === "receive"
+                      ? "Received"
+                      : m.kind === "sale"
+                        ? "Sold"
+                        : "Count corrected"}{" "}
+                    · {m.sku} · {new Date(m.createdAt).toLocaleString()}
                   </p>
                   {m.note && <p className="mt-1 text-muted">{m.note}</p>}
+                  {m.orderId && (
+                    <Link
+                      href={workspacePath(current.slug, `/sales/${m.orderId}`)}
+                      className="mt-1 inline-block text-xs text-accent hover:underline"
+                    >
+                      Open sale receipt
+                    </Link>
+                  )}
                 </div>
                 <div className="text-right">
                   <p

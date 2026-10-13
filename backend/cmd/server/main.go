@@ -23,6 +23,7 @@ import (
 	"candella-ecosystem/backend/internal/health"
 	appmiddleware "candella-ecosystem/backend/internal/middleware"
 	"candella-ecosystem/backend/internal/platform"
+	"candella-ecosystem/backend/internal/sales"
 	"candella-ecosystem/backend/internal/workspace"
 	"candella-ecosystem/backend/pkg/config"
 	"candella-ecosystem/backend/pkg/crypto"
@@ -80,6 +81,7 @@ func main() {
 	wsSvc := workspace.NewService(wsRepo)
 	wsHandler := workspace.NewHandler(wsSvc)
 	catalogHandler := catalog.NewHandler(catalog.NewService(catalog.NewPostgresRepository(pool)), auditor, log)
+	salesHandler := sales.NewHandler(sales.NewService(sales.NewPostgresRepository(pool)), auditor, log)
 
 	// The platform console reads across every tenant. It will move to its own
 	// pool running as a dedicated DB role once RLS lands (see the architecture
@@ -110,6 +112,7 @@ func main() {
 		auth.Routes(api, authHandler, authLimiter.Middleware)
 		workspace.Routes(api, wsHandler, authHandler.RequireAuth)
 		catalog.Routes(api, catalogHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
+		sales.Routes(api, salesHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		platform.Routes(api, platformHandler, authHandler.RequireAuth)
 	})
 
