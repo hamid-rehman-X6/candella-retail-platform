@@ -23,9 +23,11 @@ These settings live on GitHub and cannot be activated by merging workflow files 
 
 The App installation token is short lived and scoped to this repository. PRs created with the default `GITHUB_TOKEN` do not reliably start the follow-on PR workflows, which is why the App is needed. Issue labels use `GITHUB_TOKEN` because the same workflow immediately consumes the selected issue.
 
-## Current Products/Inventory changes
+## Current rollout
 
-The current branch is `feature/products-inventory`, tracked by issue #2 and PR #4. The branch contains migrations `0014` and `0015`, so it waits for the owner-run migration and browser smoke test described in `docs/features/01_products_inventory.md` (local documentation) before the owner merges it.
+Products/Inventory issue #2 and PR #4 are merged into `main`. PR #5 for POS cash checkout was merged into the Products/Inventory feature branch after PR #4 had already merged, so that merge did not deliver checkout to `main`. PR #6 applies the POS changes directly to `main` and closes issue #3 when the owner merges it.
+
+Before merging PR #6, the owner applies migrations `0014` through `0016` to the local database with `cd backend; go run ./cmd/migrate up` and smoke-tests Products/Inventory and one cash sale, receipt, and linked stock movement. The agent does not run migrations against the owner's database. See `docs/features/01_products_inventory.md` and `docs/features/02_pos_cash_checkout.md` (local documentation).
 
 ## References
 
