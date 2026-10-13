@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { ArrowDownToLine, ClipboardCheck, Search, X } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
 import {
@@ -33,6 +39,7 @@ export default function InventoryPage() {
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const requestKey = useRef<string | null>(null);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
 
@@ -68,6 +75,8 @@ export default function InventoryPage() {
   }, [refresh, search]);
 
   function open(item: StockItem, nextKind: "receive" | "count") {
+    if (busy) return;
+    requestKey.current = null;
     setSelected(item);
     setKind(nextKind);
     setQuantity(nextKind === "count" ? String(item.quantity) : "");
@@ -76,7 +85,7 @@ export default function InventoryPage() {
   }
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!selected) return;
+    if (!selected || busy) return;
     const amount = Number(quantity);
     if (
       !Number.isSafeInteger(amount) ||
@@ -97,9 +106,11 @@ export default function InventoryPage() {
     }
     setBusy(true);
     setError("");
+    requestKey.current ??= crypto.randomUUID();
     try {
       if (kind === "receive")
         await recordMovement(current.id, {
+          idempotencyKey: requestKey.current,
           variantId: selected.variantId,
           kind,
           quantity: amount,
@@ -107,11 +118,13 @@ export default function InventoryPage() {
         });
       else
         await recordMovement(current.id, {
+          idempotencyKey: requestKey.current,
           variantId: selected.variantId,
           kind,
           countedQuantity: amount,
           note,
         });
+      requestKey.current = null;
       setSelected(null);
       await refresh();
     } catch (e) {
@@ -317,7 +330,10 @@ export default function InventoryPage() {
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4"
           role="presentation"
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setSelected(null);
+            if (e.target === e.currentTarget && !busy) {
+              requestKey.current = null;
+              setSelected(null);
+            }
           }}
         >
           <div
@@ -341,7 +357,11 @@ export default function InventoryPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setSelected(null)}
+                onClick={() => {
+                  requestKey.current = null;
+                  setSelected(null);
+                }}
+                disabled={busy}
                 aria-label="Close"
                 className="text-muted"
               >
@@ -362,7 +382,10 @@ export default function InventoryPage() {
                   step={1}
                   required
                   value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
+                  onChange={(e) => {
+                    requestKey.current = null;
+                    setQuantity(e.target.value);
+                  }}
                 />
               </label>
               <label className="block text-sm">
@@ -379,7 +402,10 @@ export default function InventoryPage() {
                       : "e.g. Physical count after damage"
                   }
                   value={note}
-                  onChange={(e) => setNote(e.target.value)}
+                  onChange={(e) => {
+                    requestKey.current = null;
+                    setNote(e.target.value);
+                  }}
                 />
               </label>
               {error && (

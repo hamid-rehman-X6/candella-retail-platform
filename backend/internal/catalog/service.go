@@ -17,10 +17,11 @@ type Error struct {
 func (e *Error) Error() string { return e.Message }
 
 var (
-	ErrInvalid  = &Error{http.StatusBadRequest, "invalid_input", "Check the entered details and try again."}
-	ErrNotFound = &Error{http.StatusNotFound, "not_found", "That item was not found in this workspace."}
-	ErrConflict = &Error{http.StatusConflict, "duplicate_identifier", "That SKU or barcode is already used in this workspace."}
-	ErrArchived = &Error{http.StatusConflict, "product_archived", "Archived products cannot receive new variants or stock."}
+	ErrInvalid          = &Error{http.StatusBadRequest, "invalid_input", "Check the entered details and try again."}
+	ErrNotFound         = &Error{http.StatusNotFound, "not_found", "That item was not found in this workspace."}
+	ErrConflict         = &Error{http.StatusConflict, "duplicate_identifier", "That SKU or barcode is already used in this workspace."}
+	ErrArchived         = &Error{http.StatusConflict, "product_archived", "Archived products cannot receive new variants or stock."}
+	ErrMovementKeyReuse = &Error{http.StatusConflict, "inventory_key_reused", "This stock change was already submitted with different details. Start a new stock change."}
 )
 
 type Repository interface {
@@ -31,7 +32,7 @@ type Repository interface {
 	UpdateVariant(context.Context, string, string, UpdateVariantInput) (*Variant, error)
 	ListStock(context.Context, string, string, int, int) ([]StockItem, string, error)
 	Summary(context.Context, string) (*Summary, error)
-	RecordMovement(context.Context, string, string, MovementInput) (*Movement, error)
+	RecordMovement(context.Context, string, string, MovementInput) (*Movement, bool, error)
 	ListMovements(context.Context, string, int, int) ([]Movement, error)
 }
 
@@ -146,23 +147,24 @@ func (s *Service) ListStock(ctx context.Context, tenantID, search string, limit,
 func (s *Service) Summary(ctx context.Context, tenantID string) (*Summary, error) {
 	return s.repo.Summary(ctx, tenantID)
 }
-func (s *Service) RecordMovement(ctx context.Context, tenantID, userID string, in MovementInput) (*Movement, error) {
+func (s *Service) RecordMovement(ctx context.Context, tenantID, userID string, in MovementInput) (*Movement, bool, error) {
 	in.VariantID = strings.TrimSpace(in.VariantID)
+	in.IdempotencyKey = strings.TrimSpace(in.IdempotencyKey)
 	in.Note = strings.TrimSpace(in.Note)
-	if in.VariantID == "" || len(in.Note) > 500 {
-		return nil, ErrInvalid
+	if in.VariantID == "" || len(in.Note) > 500 || len(in.IdempotencyKey) < 8 || len(in.IdempotencyKey) > 100 {
+		return nil, false, ErrInvalid
 	}
 	switch in.Kind {
 	case "receive":
 		if in.Quantity == nil || *in.Quantity <= 0 || *in.Quantity > 1_000_000_000 || in.CountedQuantity != nil {
-			return nil, ErrInvalid
+			return nil, false, ErrInvalid
 		}
 	case "count":
 		if in.CountedQuantity == nil || *in.CountedQuantity < 0 || *in.CountedQuantity > 1_000_000_000 || in.Quantity != nil || in.Note == "" {
-			return nil, ErrInvalid
+			return nil, false, ErrInvalid
 		}
 	default:
-		return nil, ErrInvalid
+		return nil, false, ErrInvalid
 	}
 	return s.repo.RecordMovement(ctx, tenantID, userID, in)
 }

@@ -132,8 +132,15 @@ export const listMovements = (tenantId: string, offset = 0) =>
 export const recordMovement = (
   tenantId: string,
   input:
-    | { variantId: string; kind: "receive"; quantity: number; note: string }
     | {
+        idempotencyKey: string;
+        variantId: string;
+        kind: "receive";
+        quantity: number;
+        note: string;
+      }
+    | {
+        idempotencyKey: string;
         variantId: string;
         kind: "count";
         countedQuantity: number;
