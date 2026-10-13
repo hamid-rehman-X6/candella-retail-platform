@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { PackagePlus, Plus, Search, X } from "lucide-react";
 import { useApp } from "@/components/app/app-context";
+import { toast } from "@/lib/toast";
 import {
   addVariant,
   createProduct,
@@ -29,6 +30,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [statusTarget, setStatusTarget] = useState<Product | null>(null);
+  const [statusBusy, setStatusBusy] = useState(false);
   const [form, setForm] = useState<
     "create" | "variant" | "variant_edit" | "edit" | null
   >(null);
@@ -168,21 +171,32 @@ export default function ProductsPage() {
       setBusy(false);
     }
   }
-  async function toggleStatus(product: Product) {
-    if (
-      !confirm(
-        `${product.status === "active" ? "Archive" : "Restore"} ${product.name}?`,
-      )
-    )
-      return;
-    setError("");
+  async function confirmStatusChange() {
+    if (!statusTarget || statusBusy) return;
+    const nextStatus = statusTarget.status === "active" ? "archived" : "active";
+    setStatusBusy(true);
     try {
-      await updateProduct(current.id, product.id, {
-        status: product.status === "active" ? "archived" : "active",
+      const updated = await updateProduct(current.id, statusTarget.id, {
+        status: nextStatus,
       });
-      await refresh();
+      setProducts((previous) =>
+        previous.map((product) =>
+          product.id === updated.product.id ? updated.product : product,
+        ),
+      );
+      setStatusTarget(null);
+      toast.success(
+        `${updated.product.name} ${nextStatus === "archived" ? "archived" : "restored"}`,
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not update product.");
+      toast.error(
+        `Couldn't ${nextStatus === "archived" ? "archive" : "restore"} product`,
+        {
+          description: e instanceof Error ? e.message : "Please try again.",
+        },
+      );
+    } finally {
+      setStatusBusy(false);
     }
   }
   async function loadMore() {
@@ -304,7 +318,7 @@ export default function ProductsPage() {
                     )}
                     <button
                       type="button"
-                      onClick={() => void toggleStatus(product)}
+                      onClick={() => setStatusTarget(product)}
                       className="rounded-lg border border-line px-3 py-1.5 text-xs text-muted hover:border-line-strong"
                     >
                       {product.status === "active" ? "Archive" : "Restore"}
@@ -357,6 +371,63 @@ export default function ProductsPage() {
         >
           Load more
         </button>
+      )}
+      {statusTarget && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !statusBusy)
+              setStatusTarget(null);
+          }}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="product-status-title"
+            aria-describedby="product-status-description"
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && !statusBusy) setStatusTarget(null);
+            }}
+            className="w-full max-w-md rounded-2xl border border-line bg-canvas-raised p-6 shadow-2xl"
+          >
+            <h2 id="product-status-title" className="text-xl font-semibold">
+              {statusTarget.status === "active" ? "Archive" : "Restore"}{" "}
+              {statusTarget.name}?
+            </h2>
+            <p
+              id="product-status-description"
+              className="mt-2 text-sm text-muted"
+            >
+              {statusTarget.status === "active"
+                ? "This product will no longer be available for new sales or stock receipts. Its history stays available."
+                : "This product will be available for new sales and stock receipts again."}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                autoFocus
+                disabled={statusBusy}
+                onClick={() => setStatusTarget(null)}
+                className="rounded-xl border border-line px-4 py-2.5 text-sm hover:border-line-strong disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={statusBusy}
+                onClick={() => void confirmStatusChange()}
+                className={button}
+              >
+                {statusBusy
+                  ? "Saving…"
+                  : statusTarget.status === "active"
+                    ? "Archive product"
+                    : "Restore product"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {form && (
         <div
