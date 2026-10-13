@@ -76,7 +76,12 @@ export const getCatalogSummary = (tenantId: string) =>
 
 export const createProduct = (
   tenantId: string,
-  input: { name: string; description: string; variant: VariantInput },
+  input: {
+    name: string;
+    description: string;
+    variant: VariantInput;
+    initialQuantity?: number;
+  },
 ) => apiPost<{ product: Product }>("/products", input, tenantId);
 
 export const updateProduct = (
