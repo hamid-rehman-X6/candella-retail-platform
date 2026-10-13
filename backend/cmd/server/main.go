@@ -19,6 +19,7 @@ import (
 
 	"candella-ecosystem/backend/internal/audit"
 	"candella-ecosystem/backend/internal/auth"
+	"candella-ecosystem/backend/internal/catalog"
 	"candella-ecosystem/backend/internal/health"
 	appmiddleware "candella-ecosystem/backend/internal/middleware"
 	"candella-ecosystem/backend/internal/platform"
@@ -78,6 +79,7 @@ func main() {
 	wsRepo := workspace.NewPostgresRepository(pool)
 	wsSvc := workspace.NewService(wsRepo)
 	wsHandler := workspace.NewHandler(wsSvc)
+	catalogHandler := catalog.NewHandler(catalog.NewService(catalog.NewPostgresRepository(pool)), auditor, log)
 
 	// The platform console reads across every tenant. It will move to its own
 	// pool running as a dedicated DB role once RLS lands (see the architecture
@@ -99,7 +101,7 @@ func main() {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{cfg.AllowedCORS},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Content-Type", "Authorization"},
+		AllowedHeaders:   []string{"Accept", "Content-Type", "Authorization", workspace.TenantHeader},
 		AllowCredentials: true, // required so the session cookie is sent/accepted
 	}))
 
@@ -107,6 +109,7 @@ func main() {
 		health.Routes(api)
 		auth.Routes(api, authHandler, authLimiter.Middleware)
 		workspace.Routes(api, wsHandler, authHandler.RequireAuth)
+		catalog.Routes(api, catalogHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		platform.Routes(api, platformHandler, authHandler.RequireAuth)
 	})
 

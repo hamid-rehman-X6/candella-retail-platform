@@ -43,6 +43,14 @@ func (r *repoPostgres) CreateWithOwner(ctx context.Context, w *Workspace, ownerU
 			INSERT INTO tenant_memberships (id, tenant_id, user_id, role, status)
 			VALUES ($1, $2, $3, 'owner', 'active')`,
 			id.New(id.TenantMembership), w.ID, ownerUserID)
+		if err != nil {
+			return err
+		}
+		// Stores use RLS, so stamp this transaction before creating the default location.
+		if _, err := tx.Exec(ctx, `SELECT set_config('app.current_tenant_id', $1, true)`, w.ID); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `INSERT INTO stores (id, tenant_id, name, is_default) VALUES ($1, $2, 'Main store', true)`, id.New(id.Store), w.ID)
 		return err
 	})
 }

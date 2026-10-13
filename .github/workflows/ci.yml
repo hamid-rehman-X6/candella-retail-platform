@@ -6,6 +6,16 @@ on:
   pull_request:
 
 jobs:
+  automation:
+    name: Automation (queue tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test .github/scripts/*.test.cjs
+
   frontend:
     name: Frontend (lint, typecheck, build)
     runs-on: ubuntu-latest
@@ -30,6 +40,22 @@ jobs:
   backend:
     name: Backend (vet, build, test)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: candella
+          POSTGRES_PASSWORD: candella
+          POSTGRES_DB: candella
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U candella -d candella"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://candella:candella@localhost:5432/candella?sslmode=disable
     defaults:
       run:
         working-directory: backend
@@ -43,3 +69,4 @@ jobs:
       - run: go vet ./...
       - run: go build ./...
       - run: go test ./...
+      - run: go run ./cmd/migrate up

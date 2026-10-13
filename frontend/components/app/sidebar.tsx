@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  Package,
   Store,
   Boxes,
   Users,
@@ -19,12 +20,13 @@ import { cn } from "@/lib/cn";
 // Paths are relative to the current workspace; the sidebar prefixes them.
 const mainNav: { label: string; path: string; icon: LucideIcon }[] = [
   { label: "Overview", path: "", icon: LayoutDashboard },
+  { label: "Products", path: "/products", icon: Package },
+  { label: "Inventory", path: "/inventory", icon: Boxes },
 ];
 
 // Business modules ship later; shown now so the shell reads as a real app.
 const moduleNav: { label: string; icon: LucideIcon }[] = [
   { label: "Sales", icon: Store },
-  { label: "Inventory", icon: Boxes },
   { label: "Customers", icon: Users },
   { label: "Reports", icon: BarChart3 },
 ];

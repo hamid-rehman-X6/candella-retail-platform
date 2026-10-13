@@ -1,32 +1,63 @@
 "use client";
 
-import { Receipt, Store, Package, Users, Check, Sparkles } from "lucide-react";
-import { useApp } from "@/components/app/app-context";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Receipt, Store, Package, Boxes, Check, Sparkles } from "lucide-react";
+import { useApp, workspacePath } from "@/components/app/app-context";
 import { industryLabel } from "@/lib/industries";
-
-const kpis = [
-  { label: "Revenue", value: "—", icon: Receipt },
-  { label: "Orders", value: "0", icon: Store },
-  { label: "Products", value: "0", icon: Package },
-  { label: "Customers", value: "0", icon: Users },
-];
-
-const nextSteps = [
-  { label: "Add your products", done: false },
-  { label: "Set up a register (POS)", done: false },
-  { label: "Invite your team", done: false },
-];
+import { getCatalogSummary, type CatalogSummary } from "@/lib/catalog-api";
 
 export default function DashboardPage() {
   const { user, current } = useApp();
   const firstName = user.fullName.split(" ")[0] || user.fullName;
+  const [summary, setSummary] = useState<CatalogSummary | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getCatalogSummary(current.id)
+      .then(({ summary: result }) => {
+        if (active) setSummary(result);
+      })
+      .catch(() => {
+        if (active) setSummary(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [current.id]);
+
+  const kpis = [
+    {
+      label: "Revenue",
+      value: "—",
+      icon: Receipt,
+      note: "Sales module coming soon",
+    },
+    {
+      label: "Orders",
+      value: "—",
+      icon: Store,
+      note: "Sales module coming soon",
+    },
+    {
+      label: "Products",
+      value: summary?.productCount ?? "—",
+      icon: Package,
+      note: "Active products",
+    },
+    {
+      label: "Stock units",
+      value: summary?.unitsOnHand ?? "—",
+      icon: Boxes,
+      note: "At Main store",
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Greeting */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Welcome, {firstName} 👋
+          Welcome, {firstName}
         </h1>
         <p className="mt-1 text-muted">
           Here&apos;s what&apos;s happening at{" "}
@@ -34,8 +65,6 @@ export default function DashboardPage() {
           {industryLabel(current.industryType)}
         </p>
       </div>
-
-      {/* KPI tiles (empty states until the business modules ship) */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
@@ -53,50 +82,53 @@ export default function DashboardPage() {
               <p className="mt-3 text-3xl font-semibold tracking-tight">
                 {kpi.value}
               </p>
-              <p className="mt-1 text-xs text-subtle">No data yet</p>
+              <p className="mt-1 text-xs text-subtle">{kpi.note}</p>
             </div>
           );
         })}
       </div>
-
-      {/* Getting started */}
       <div className="card-surface ring-gradient relative overflow-hidden rounded-3xl p-6 sm:p-8">
-        <div className="absolute -top-16 -right-16 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.14),transparent_70%)] blur-2xl" />
-        <div className="relative flex items-start gap-4">
+        <div className="flex items-start gap-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent ring-1 ring-accent/20">
             <Sparkles className="h-5 w-5" />
           </span>
-          <div className="flex-1">
+          <div>
             <h2 className="text-lg font-semibold tracking-tight">
-              Your workspace is ready
+              Set up your store
             </h2>
             <p className="mt-1 text-sm text-muted">
-              {current.name} is set up. The retail modules (POS, inventory,
-              customers and reports) are on the way — here&apos;s what&apos;s
-              next once they land.
+              Add your products and starting stock. Checkout and customer
+              management are coming later.
             </p>
-
-            <ul className="mt-5 flex flex-col gap-2.5">
-              <li className="flex items-center gap-3 text-sm">
+            <ul className="mt-5 flex flex-col gap-3 text-sm">
+              <li className="flex items-center gap-3">
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
                   <Check className="h-3 w-3" />
                 </span>
-                <span className="text-foreground/85">
-                  Create your workspace
-                </span>
+                Create your workspace
               </li>
-              {nextSteps.map((step) => (
-                <li
-                  key={step.label}
-                  className="flex items-center gap-3 text-sm"
+              <li className="flex items-center gap-3">
+                <span
+                  className={`h-5 w-5 rounded-full border ${summary?.productCount ? "border-emerald-500 bg-emerald-500/20" : "border-line"}`}
+                />
+                <Link
+                  className="hover:text-accent"
+                  href={workspacePath(current.slug, "/products")}
                 >
-                  <span className="h-5 w-5 rounded-full border border-line" />
-                  <span className="text-muted">{step.label}</span>
-                  <span className="ml-auto rounded-full bg-white/5 px-2 py-0.5 text-[10px] tracking-wide text-subtle">
-                    Soon
-                  </span>
-                </li>
-              ))}
+                  Add your products →
+                </Link>
+              </li>
+              <li className="flex items-center gap-3">
+                <span
+                  className={`h-5 w-5 rounded-full border ${summary?.unitsOnHand ? "border-emerald-500 bg-emerald-500/20" : "border-line"}`}
+                />
+                <Link
+                  className="hover:text-accent"
+                  href={workspacePath(current.slug, "/inventory")}
+                >
+                  Receive starting stock →
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
