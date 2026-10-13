@@ -117,8 +117,14 @@ export default function ProductsPage() {
       setError(`Enter a valid price for ${current.currencyCode}.`);
       return;
     }
-    const openingStock = initialQuantity.trim() === "" ? 0 : Number(initialQuantity);
-    if (form === "create" && (!Number.isInteger(openingStock) || openingStock < 0 || openingStock > 1_000_000_000)) {
+    const openingStock =
+      initialQuantity.trim() === "" ? 0 : Number(initialQuantity);
+    if (
+      form === "create" &&
+      (!Number.isInteger(openingStock) ||
+        openingStock < 0 ||
+        openingStock > 1_000_000_000)
+    ) {
       setError("Enter a whole opening quantity between 0 and 1,000,000,000.");
       return;
     }
@@ -203,7 +209,8 @@ export default function ProductsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Products</h1>
           <p className="mt-1 text-sm text-muted">
-            Your sellable catalog. A unique SKU is generated for each new variant.
+            Your sellable catalog. A unique SKU is generated for each new
+            variant.
           </p>
         </div>
         {editable && (
@@ -444,7 +451,8 @@ export default function ProductsPage() {
                     </label>
                   ) : (
                     <p className="rounded-xl border border-line bg-surface p-3 text-sm text-muted">
-                      SKU will be generated automatically. You can edit it later.
+                      SKU will be generated automatically. You can edit it
+                      later.
                     </p>
                   )}
                   <label className="block text-sm">
@@ -469,7 +477,8 @@ export default function ProductsPage() {
                   </label>
                   {form === "create" && (
                     <label className="block text-sm">
-                      Opening stock at Main store <span className="text-muted">(optional)</span>
+                      Opening stock at Main store{" "}
+                      <span className="text-muted">(optional)</span>
                       <input
                         className={`${field} mt-1`}
                         type="number"
