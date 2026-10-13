@@ -25,7 +25,7 @@ var (
 
 type Repository interface {
 	ListProducts(context.Context, string, string, int, int) ([]Product, error)
-	CreateProduct(context.Context, string, CreateProductInput) (*Product, error)
+	CreateProduct(context.Context, string, string, CreateProductInput) (*Product, error)
 	UpdateProduct(context.Context, string, string, UpdateProductInput) (*Product, error)
 	AddVariant(context.Context, string, string, CreateVariantInput) (*Variant, error)
 	UpdateVariant(context.Context, string, string, UpdateVariantInput) (*Variant, error)
@@ -46,7 +46,7 @@ func trimVariant(v CreateVariantInput) (CreateVariantInput, error) {
 	}
 	v.SKU = strings.ToUpper(strings.TrimSpace(v.SKU))
 	v.Barcode = strings.TrimSpace(v.Barcode)
-	if len(v.Name) > 100 || len(v.SKU) == 0 || len(v.SKU) > 80 || len(v.Barcode) > 80 || v.PriceMinor < 0 || v.PriceMinor > 1_000_000_000_000 {
+	if len(v.Name) > 100 || len(v.SKU) > 80 || len(v.Barcode) > 80 || v.PriceMinor < 0 || v.PriceMinor > 1_000_000_000_000 {
 		return v, ErrInvalid
 	}
 	return v, nil
@@ -63,10 +63,11 @@ func normalizeDBError(err error) error {
 func (s *Service) ListProducts(ctx context.Context, tenantID, search string, limit, offset int) ([]Product, error) {
 	return s.repo.ListProducts(ctx, tenantID, strings.TrimSpace(search), pageLimit(limit), pageOffset(offset))
 }
-func (s *Service) CreateProduct(ctx context.Context, tenantID string, in CreateProductInput) (*Product, error) {
+func (s *Service) CreateProduct(ctx context.Context, tenantID, userID string, in CreateProductInput) (*Product, error) {
 	in.Name = strings.TrimSpace(in.Name)
 	in.Description = strings.TrimSpace(in.Description)
-	if in.Name == "" || len(in.Name) > 160 || len(in.Description) > 2000 {
+	if in.Name == "" || len(in.Name) > 160 || len(in.Description) > 2000 ||
+		(in.InitialQuantity != nil && (*in.InitialQuantity < 0 || *in.InitialQuantity > 1_000_000_000)) {
 		return nil, ErrInvalid
 	}
 	v, err := trimVariant(in.Variant)
@@ -74,7 +75,7 @@ func (s *Service) CreateProduct(ctx context.Context, tenantID string, in CreateP
 		return nil, err
 	}
 	in.Variant = v
-	p, err := s.repo.CreateProduct(ctx, tenantID, in)
+	p, err := s.repo.CreateProduct(ctx, tenantID, userID, in)
 	return p, normalizeDBError(err)
 }
 func (s *Service) UpdateProduct(ctx context.Context, tenantID, productID string, in UpdateProductInput) (*Product, error) {

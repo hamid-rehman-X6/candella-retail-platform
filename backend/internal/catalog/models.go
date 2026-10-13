@@ -56,9 +56,10 @@ type Movement struct {
 }
 
 type CreateProductInput struct {
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	Variant     CreateVariantInput `json:"variant"`
+	Name            string             `json:"name"`
+	Description     string             `json:"description"`
+	Variant         CreateVariantInput `json:"variant"`
+	InitialQuantity *int64             `json:"initialQuantity"`
 }
 
 type CreateVariantInput struct {

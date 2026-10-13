@@ -68,9 +68,16 @@ func (r *postgresRepository) ListProducts(ctx context.Context, tenantID, search 
 	return out, err
 }
 
-func (r *postgresRepository) CreateProduct(ctx context.Context, tenantID string, in CreateProductInput) (*Product, error) {
+// skuForVariant encodes the case-sensitive variant ID suffix as uppercase hex.
+// The encoding is injective, so case-insensitive SKU uniqueness holds for IDs.
+func skuForVariant(variantID string) string { return fmt.Sprintf("SKU-%X", variantID[4:]) }
+
+func (r *postgresRepository) CreateProduct(ctx context.Context, tenantID, userID string, in CreateProductInput) (*Product, error) {
 	p := &Product{ID: id.New(id.Product), Name: in.Name, Description: in.Description, Status: "active", Variants: []Variant{}}
 	v := Variant{ID: id.New(id.ProductVariant), ProductID: p.ID, Name: in.Variant.Name, SKU: in.Variant.SKU, PriceMinor: in.Variant.PriceMinor}
+	if v.SKU == "" {
+		v.SKU = skuForVariant(v.ID)
+	}
 	if in.Variant.Barcode != "" {
 		v.Barcode = &in.Variant.Barcode
 	}
@@ -81,6 +88,22 @@ func (r *postgresRepository) CreateProduct(ctx context.Context, tenantID string,
 		}
 		_, err := tx.Exec(ctx, `INSERT INTO product_variants (id, tenant_id, product_id, name, sku, barcode, price_minor)
 			VALUES ($1,$2,$3,$4,$5,$6,$7)`, v.ID, tenantID, p.ID, v.Name, v.SKU, v.Barcode, v.PriceMinor)
+		if err != nil || in.InitialQuantity == nil || *in.InitialQuantity == 0 {
+			return err
+		}
+		storeID, err := defaultStore(ctx, tx, tenantID)
+		if err != nil {
+			return err
+		}
+		v.Quantity = *in.InitialQuantity
+		if _, err := tx.Exec(ctx, `INSERT INTO stock_levels (id, tenant_id, store_id, variant_id, quantity)
+			VALUES ($1,$2,$3,$4,$5)`, id.New(id.StockLevel), tenantID, storeID, v.ID, v.Quantity); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `INSERT INTO stock_movements (id, tenant_id, store_id, variant_id, kind,
+			delta, quantity_before, quantity_after, note, created_by)
+			VALUES ($1,$2,$3,$4,'receive',$5,0,$5,'Opening stock at product creation',$6)`,
+			id.New(id.StockMovement), tenantID, storeID, v.ID, v.Quantity, userID)
 		return err
 	})
 	if err != nil {
@@ -161,6 +184,9 @@ func (r *postgresRepository) UpdateVariant(ctx context.Context, tenantID, varian
 
 func (r *postgresRepository) AddVariant(ctx context.Context, tenantID, productID string, in CreateVariantInput) (*Variant, error) {
 	v := &Variant{ID: id.New(id.ProductVariant), ProductID: productID, Name: in.Name, SKU: in.SKU, PriceMinor: in.PriceMinor}
+	if v.SKU == "" {
+		v.SKU = skuForVariant(v.ID)
+	}
 	if in.Barcode != "" {
 		v.Barcode = &in.Barcode
 	}
