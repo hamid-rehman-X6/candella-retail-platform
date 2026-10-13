@@ -102,7 +102,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
               ))}
               <div className="my-1 h-px bg-line" />
               <Link
-                href="/onboarding"
+                href={`/onboarding?from=${encodeURIComponent(current.slug)}`}
                 onClick={() => setWsOpen(false)}
                 className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted transition-colors hover:bg-white/5 hover:text-foreground"
               >
