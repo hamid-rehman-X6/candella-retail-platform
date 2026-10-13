@@ -178,8 +178,7 @@ export default function ProductsPage() {
       toast.error(
         `Couldn't ${nextStatus === "archived" ? "archive" : "restore"} product`,
         {
-          description:
-            e instanceof Error ? e.message : "Please try again.",
+          description: e instanceof Error ? e.message : "Please try again.",
         },
       );
     } finally {
@@ -378,9 +377,13 @@ export default function ProductsPage() {
             className="w-full max-w-md rounded-2xl border border-line bg-canvas-raised p-6 shadow-2xl"
           >
             <h2 id="product-status-title" className="text-xl font-semibold">
-              {statusTarget.status === "active" ? "Archive" : "Restore"} {statusTarget.name}?
+              {statusTarget.status === "active" ? "Archive" : "Restore"}{" "}
+              {statusTarget.name}?
             </h2>
-            <p id="product-status-description" className="mt-2 text-sm text-muted">
+            <p
+              id="product-status-description"
+              className="mt-2 text-sm text-muted"
+            >
               {statusTarget.status === "active"
                 ? "This product will no longer be available for new sales or stock receipts. Its history stays available."
                 : "This product will be available for new sales and stock receipts again."}
