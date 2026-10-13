@@ -18,5 +18,10 @@ func Routes(r chi.Router, h *Handler, requireAuth, requireTenant func(http.Handl
 		g.Get("/inventory", h.ListStock)
 		g.Post("/inventory/movements", h.RecordMovement)
 		g.Get("/inventory/movements", h.ListMovements)
+		g.Get("/suppliers", h.ListSuppliers)
+		g.Post("/suppliers", h.CreateSupplier)
+		g.Patch("/suppliers/{supplierID}", h.UpdateSupplier)
+		g.Get("/suppliers/{supplierID}/sources", h.ListSupplierSources)
+		g.Post("/suppliers/{supplierID}/sources", h.SaveSupplierSource)
 	})
 }

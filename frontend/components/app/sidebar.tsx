@@ -7,6 +7,7 @@ import {
   Package,
   Store,
   Boxes,
+  Truck,
   Users,
   BarChart3,
   Settings,
@@ -22,6 +23,7 @@ const mainNav: { label: string; path: string; icon: LucideIcon }[] = [
   { label: "Overview", path: "", icon: LayoutDashboard },
   { label: "Products", path: "/products", icon: Package },
   { label: "Inventory", path: "/inventory", icon: Boxes },
+  { label: "Suppliers", path: "/suppliers", icon: Truck },
   { label: "Sales", path: "/sales", icon: Store },
 ];
 
