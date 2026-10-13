@@ -39,11 +39,12 @@ export type CatalogSummary = {
 
 export type Movement = {
   id: string;
+  orderId: string | null;
   variantId: string;
   productName: string;
   variantName: string;
   sku: string;
-  kind: "receive" | "count";
+  kind: "receive" | "count" | "sale";
   delta: number;
   quantityBefore: number;
   quantityAfter: number;

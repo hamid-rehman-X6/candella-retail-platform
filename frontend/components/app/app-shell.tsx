@@ -26,11 +26,11 @@ export function AppShell({
 
   return (
     <AppProvider user={user} workspaces={workspaces} current={current}>
-      <div className="min-h-screen bg-canvas">
+      <div className="min-h-screen bg-canvas print:bg-white">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="lg:pl-64">
+        <div className="lg:pl-64 print:pl-0">
           <Topbar onMenuClick={() => setSidebarOpen(true)} />
-          <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+          <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 print:max-w-none print:p-0">
             {children}
           </main>
         </div>

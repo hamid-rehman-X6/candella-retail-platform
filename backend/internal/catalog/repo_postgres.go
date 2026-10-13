@@ -302,7 +302,7 @@ func (r *postgresRepository) RecordMovement(ctx context.Context, tenantID, userI
 func (r *postgresRepository) ListMovements(ctx context.Context, tenantID string, limit, offset int) ([]Movement, error) {
 	out := make([]Movement, 0)
 	err := withCatalogTx(ctx, r.db, tenantID, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT m.id, m.variant_id, p.name, v.name, v.sku, m.kind, m.delta,
+		rows, err := tx.Query(ctx, `SELECT m.id, m.order_id, m.variant_id, p.name, v.name, v.sku, m.kind, m.delta,
 			m.quantity_before, m.quantity_after, m.note, m.created_at FROM stock_movements m
 			JOIN product_variants v ON v.tenant_id=m.tenant_id AND v.id=m.variant_id
 			JOIN products p ON p.tenant_id=v.tenant_id AND p.id=v.product_id
@@ -313,7 +313,7 @@ func (r *postgresRepository) ListMovements(ctx context.Context, tenantID string,
 		defer rows.Close()
 		for rows.Next() {
 			var m Movement
-			if err := rows.Scan(&m.ID, &m.VariantID, &m.ProductName, &m.VariantName, &m.SKU, &m.Kind,
+			if err := rows.Scan(&m.ID, &m.OrderID, &m.VariantID, &m.ProductName, &m.VariantName, &m.SKU, &m.Kind,
 				&m.Delta, &m.QuantityBefore, &m.QuantityAfter, &m.Note, &m.CreatedAt); err != nil {
 				return err
 			}
