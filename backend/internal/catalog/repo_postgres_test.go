@@ -103,6 +103,9 @@ func TestCreateProductWithOpeningStockPostgres(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM products WHERE tenant_id=$1`, tenantB).Scan(&movementCount); err != nil || movementCount != 0 {
 		t.Fatalf("failed creation left %d products, err=%v", movementCount, err)
 	}
+	// The missing-store rollback is verified; add tenant B's store so the
+	// cross-tenant request reaches the variant isolation check.
+	mustExec(`INSERT INTO stores (id,tenant_id,name,is_default) VALUES ($1,$2,'Main',true)`, id.New(id.Store), tenantB)
 
 	variantID := product.Variants[0].ID
 	receiveKey := id.New(id.StockMovement)
@@ -215,7 +218,6 @@ func TestCreateProductWithOpeningStockPostgres(t *testing.T) {
 		t.Fatalf("new receipt on archived product: %v", err)
 	}
 
-	mustExec(`INSERT INTO stores (id,tenant_id,name,is_default) VALUES ($1,$2,'Main',true)`, id.New(id.Store), tenantB)
 	other, err := svc.CreateProduct(ctx, tenantB, userID, CreateProductInput{Name: "Other soap", Variant: CreateVariantInput{PriceMinor: 150}})
 	if err != nil {
 		t.Fatal(err)
