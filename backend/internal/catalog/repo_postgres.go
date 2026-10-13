@@ -2,6 +2,9 @@ package catalog
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -270,9 +273,42 @@ func (r *postgresRepository) ListStock(ctx context.Context, tenantID, search str
 	return out, storeID, err
 }
 
-func (r *postgresRepository) RecordMovement(ctx context.Context, tenantID, userID string, in MovementInput) (*Movement, error) {
+func movementRequestHash(userID string, in MovementInput) string {
+	payload, _ := json.Marshal(struct {
+		UserID, VariantID, Kind, Note string
+		Quantity, CountedQuantity     *int64
+	}{userID, in.VariantID, in.Kind, in.Note, in.Quantity, in.CountedQuantity})
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:])
+}
+
+func (r *postgresRepository) RecordMovement(ctx context.Context, tenantID, userID string, in MovementInput) (*Movement, bool, error) {
 	m := &Movement{ID: id.New(id.StockMovement), VariantID: in.VariantID, Kind: in.Kind, Note: in.Note}
+	created := false
+	hash := movementRequestHash(userID, in)
 	err := withCatalogTx(ctx, r.db, tenantID, func(tx pgx.Tx) error {
+		// Serialize matching retries before reading or changing the balance.
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))`, tenantID, in.IdempotencyKey); err != nil {
+			return err
+		}
+		var existingHash string
+		err := tx.QueryRow(ctx, `SELECT m.id, m.request_hash, m.variant_id, p.name, v.name, v.sku, m.kind,
+			m.delta, m.quantity_before, m.quantity_after, m.note, m.created_at
+			FROM stock_movements m
+			JOIN product_variants v ON v.tenant_id=m.tenant_id AND v.id=m.variant_id
+			JOIN products p ON p.tenant_id=v.tenant_id AND p.id=v.product_id
+			WHERE m.tenant_id=$1 AND m.idempotency_key=$2`, tenantID, in.IdempotencyKey).
+			Scan(&m.ID, &existingHash, &m.VariantID, &m.ProductName, &m.VariantName, &m.SKU,
+				&m.Kind, &m.Delta, &m.QuantityBefore, &m.QuantityAfter, &m.Note, &m.CreatedAt)
+		if err == nil {
+			if existingHash != hash {
+				return ErrMovementKeyReuse
+			}
+			return nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
 		storeID, err := defaultStore(ctx, tx, tenantID)
 		if err != nil {
 			return err
@@ -317,12 +353,16 @@ func (r *postgresRepository) RecordMovement(ctx context.Context, tenantID, userI
 			return err
 		}
 		err = tx.QueryRow(ctx, `INSERT INTO stock_movements (id, tenant_id, store_id, variant_id, kind, delta,
-			quantity_before, quantity_after, note, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+			quantity_before, quantity_after, note, created_by, idempotency_key, request_hash)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 			RETURNING created_at`, m.ID, tenantID, storeID, in.VariantID, in.Kind, m.Delta,
-			m.QuantityBefore, m.QuantityAfter, in.Note, userID).Scan(&m.CreatedAt)
+			m.QuantityBefore, m.QuantityAfter, in.Note, userID, in.IdempotencyKey, hash).Scan(&m.CreatedAt)
+		if err == nil {
+			created = true
+		}
 		return err
 	})
-	return m, err
+	return m, created, err
 }
 
 func (r *postgresRepository) ListMovements(ctx context.Context, tenantID string, limit, offset int) ([]Movement, error) {

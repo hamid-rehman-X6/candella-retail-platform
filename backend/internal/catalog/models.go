@@ -83,6 +83,7 @@ type UpdateVariantInput struct {
 }
 
 type MovementInput struct {
+	IdempotencyKey  string `json:"idempotencyKey"`
 	VariantID       string `json:"variantId"`
 	Kind            string `json:"kind"`
 	Quantity        *int64 `json:"quantity"`

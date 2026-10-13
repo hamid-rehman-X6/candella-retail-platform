@@ -175,14 +175,20 @@ func (h *Handler) RecordMovement(w http.ResponseWriter, r *http.Request) {
 		h.writeErr(w, err)
 		return
 	}
-	m, err := h.svc.RecordMovement(r.Context(), t.TenantID, u.ID, in)
+	m, created, err := h.svc.RecordMovement(r.Context(), t.TenantID, u.ID, in)
 	if err != nil {
 		h.writeErr(w, err)
 		return
 	}
-	h.auditor.Record(r.Context(), audit.Entry{UserID: &u.ID, Action: "inventory." + m.Kind, EntityType: "stock_movement", EntityID: m.ID,
-		Metadata: map[string]any{"variantId": m.VariantID, "quantityBefore": m.QuantityBefore, "quantityAfter": m.QuantityAfter}})
-	response.JSON(w, http.StatusCreated, map[string]any{"movement": m})
+	if created {
+		h.auditor.Record(r.Context(), audit.Entry{UserID: &u.ID, Action: "inventory." + m.Kind, EntityType: "stock_movement", EntityID: m.ID,
+			Metadata: map[string]any{"variantId": m.VariantID, "quantityBefore": m.QuantityBefore, "quantityAfter": m.QuantityAfter}})
+	}
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+	}
+	response.JSON(w, status, map[string]any{"movement": m})
 }
 func (h *Handler) ListMovements(w http.ResponseWriter, r *http.Request) {
 	t, _ := scope(r)
