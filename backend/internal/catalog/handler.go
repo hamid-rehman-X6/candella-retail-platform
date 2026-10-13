@@ -93,7 +93,7 @@ func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		h.writeErr(w, err)
 		return
 	}
-	p, err := h.svc.CreateProduct(r.Context(), t.TenantID, in)
+	p, err := h.svc.CreateProduct(r.Context(), t.TenantID, u.ID, in)
 	if err != nil {
 		h.writeErr(w, err)
 		return

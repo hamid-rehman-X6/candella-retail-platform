@@ -2,8 +2,50 @@ package catalog
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
+
+type productRepo struct {
+	Repository
+	called bool
+	input  CreateProductInput
+	userID string
+}
+
+func (r *productRepo) CreateProduct(_ context.Context, _, userID string, in CreateProductInput) (*Product, error) {
+	r.called, r.input, r.userID = true, in, userID
+	return &Product{Variants: []Variant{{SKU: in.Variant.SKU}}}, nil
+}
+
+func TestCreateProductOpeningStockValidation(t *testing.T) {
+	for _, quantity := range []int64{-1, 1_000_000_001} {
+		repo := &productRepo{}
+		_, err := NewService(repo).CreateProduct(context.Background(), "tenant", "user", CreateProductInput{
+			Name: "Soap", Variant: CreateVariantInput{PriceMinor: 100}, InitialQuantity: &quantity,
+		})
+		if err != ErrInvalid || repo.called {
+			t.Fatalf("quantity=%d error=%v repository called=%t", quantity, err, repo.called)
+		}
+	}
+	repo := &productRepo{}
+	quantity := int64(5)
+	_, err := NewService(repo).CreateProduct(context.Background(), "tenant", "user", CreateProductInput{
+		Name: " Soap ", Variant: CreateVariantInput{PriceMinor: 100}, InitialQuantity: &quantity,
+	})
+	if err != nil || !repo.called || repo.userID != "user" || repo.input.Name != "Soap" ||
+		repo.input.Variant.SKU != "" || *repo.input.InitialQuantity != 5 {
+		t.Fatalf("valid opening stock was not forwarded: input=%+v error=%v", repo.input, err)
+	}
+}
+
+func TestGeneratedSKUPreservesCaseDistinctIDs(t *testing.T) {
+	a := skuForVariant("var_AbCd12345678")
+	b := skuForVariant("var_abcd12345678")
+	if a == b || !strings.HasPrefix(a, "SKU-") || len(a) > 80 {
+		t.Fatalf("generated SKUs should be distinct and valid: %q %q", a, b)
+	}
+}
 
 type movementRepo struct {
 	Repository

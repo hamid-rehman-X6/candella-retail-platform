@@ -40,6 +40,7 @@ export default function ProductsPage() {
   const [sku, setSku] = useState("");
   const [barcode, setBarcode] = useState("");
   const [price, setPrice] = useState("");
+  const [initialQuantity, setInitialQuantity] = useState("0");
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
 
@@ -76,6 +77,7 @@ export default function ProductsPage() {
     setSku("");
     setBarcode("");
     setPrice("");
+    setInitialQuantity("0");
     setError("");
     setForm("create");
   }
@@ -115,6 +117,11 @@ export default function ProductsPage() {
       setError(`Enter a valid price for ${current.currencyCode}.`);
       return;
     }
+    const openingStock = initialQuantity.trim() === "" ? 0 : Number(initialQuantity);
+    if (form === "create" && (!Number.isInteger(openingStock) || openingStock < 0 || openingStock > 1_000_000_000)) {
+      setError("Enter a whole opening quantity between 0 and 1,000,000,000.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -122,9 +129,10 @@ export default function ProductsPage() {
         await createProduct(current.id, {
           name,
           description,
+          initialQuantity: openingStock,
           variant: {
             name: variantName || "Standard",
-            sku,
+            sku: "",
             barcode,
             priceMinor,
           },
@@ -132,7 +140,7 @@ export default function ProductsPage() {
       } else if (form === "variant" && selected) {
         await addVariant(current.id, selected.id, {
           name: variantName || "Standard",
-          sku,
+          sku: "",
           barcode,
           priceMinor,
         });
@@ -195,7 +203,7 @@ export default function ProductsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Products</h1>
           <p className="mt-1 text-sm text-muted">
-            Your sellable catalog. Add a SKU for each size, color, or pack.
+            Your sellable catalog. A unique SKU is generated for each new variant.
           </p>
         </div>
         {editable && (
@@ -423,16 +431,22 @@ export default function ProductsPage() {
                       onChange={(e) => setVariantName(e.target.value)}
                     />
                   </label>
-                  <label className="block text-sm">
-                    SKU
-                    <input
-                      className={`${field} mt-1`}
-                      required
-                      maxLength={80}
-                      value={sku}
-                      onChange={(e) => setSku(e.target.value)}
-                    />
-                  </label>
+                  {form === "variant_edit" ? (
+                    <label className="block text-sm">
+                      SKU
+                      <input
+                        className={`${field} mt-1`}
+                        required
+                        maxLength={80}
+                        value={sku}
+                        onChange={(e) => setSku(e.target.value)}
+                      />
+                    </label>
+                  ) : (
+                    <p className="rounded-xl border border-line bg-surface p-3 text-sm text-muted">
+                      SKU will be generated automatically. You can edit it later.
+                    </p>
+                  )}
                   <label className="block text-sm">
                     Barcode <span className="text-muted">(optional)</span>
                     <input
@@ -453,6 +467,23 @@ export default function ProductsPage() {
                       onChange={(e) => setPrice(e.target.value)}
                     />
                   </label>
+                  {form === "create" && (
+                    <label className="block text-sm">
+                      Opening stock at Main store <span className="text-muted">(optional)</span>
+                      <input
+                        className={`${field} mt-1`}
+                        type="number"
+                        min={0}
+                        max={1_000_000_000}
+                        step={1}
+                        value={initialQuantity}
+                        onChange={(e) => setInitialQuantity(e.target.value)}
+                      />
+                      <span className="mt-1 block text-xs text-muted">
+                        You can receive more stock later from Inventory.
+                      </span>
+                    </label>
+                  )}
                 </>
               )}
               {error && (
