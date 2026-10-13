@@ -32,6 +32,9 @@ const (
 	ProductVariant   Prefix = "var"
 	StockLevel       Prefix = "stk"
 	StockMovement    Prefix = "mov"
+	Order            Prefix = "ord"
+	OrderItem        Prefix = "oitem"
+	Payment          Prefix = "pay"
 )
 
 // New returns a new prefixed ID, e.g. New(id.User) -> "usr_4f8K2mQpXrTz".

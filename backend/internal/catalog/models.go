@@ -42,6 +42,7 @@ type Summary struct {
 
 type Movement struct {
 	ID             string    `json:"id"`
+	OrderID        *string   `json:"orderId"`
 	VariantID      string    `json:"variantId"`
 	ProductName    string    `json:"productName"`
 	VariantName    string    `json:"variantName"`

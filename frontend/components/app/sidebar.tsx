@@ -22,11 +22,11 @@ const mainNav: { label: string; path: string; icon: LucideIcon }[] = [
   { label: "Overview", path: "", icon: LayoutDashboard },
   { label: "Products", path: "/products", icon: Package },
   { label: "Inventory", path: "/inventory", icon: Boxes },
+  { label: "Sales", path: "/sales", icon: Store },
 ];
 
 // Business modules ship later; shown now so the shell reads as a real app.
 const moduleNav: { label: string; icon: LucideIcon }[] = [
-  { label: "Sales", icon: Store },
   { label: "Customers", icon: Users },
   { label: "Reports", icon: BarChart3 },
 ];
@@ -69,7 +69,7 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-line bg-canvas-raised transition-transform duration-300 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-line bg-canvas-raised transition-transform duration-300 lg:translate-x-0 print:hidden",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
