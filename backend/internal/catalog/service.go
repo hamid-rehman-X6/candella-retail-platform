@@ -34,6 +34,11 @@ type Repository interface {
 	Summary(context.Context, string) (*Summary, error)
 	RecordMovement(context.Context, string, string, MovementInput) (*Movement, bool, error)
 	ListMovements(context.Context, string, int, int) ([]Movement, error)
+	ListSuppliers(context.Context, string, string, int, int) ([]Supplier, error)
+	CreateSupplier(context.Context, string, SupplierInput) (*Supplier, error)
+	UpdateSupplier(context.Context, string, string, SupplierUpdateInput) (*Supplier, error)
+	ListSupplierSources(context.Context, string, string, int, int) ([]SupplierSource, error)
+	SaveSupplierSource(context.Context, string, string, SupplierSourceInput) (*SupplierSource, error)
 }
 
 type Service struct{ repo Repository }

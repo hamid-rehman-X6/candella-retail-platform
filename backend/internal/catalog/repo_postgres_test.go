@@ -203,6 +203,70 @@ func TestCreateProductWithOpeningStockPostgres(t *testing.T) {
 	if previous != balance {
 		t.Fatalf("ledger ends at %d, balance %d", previous, balance)
 	}
+	supplier, err := svc.CreateSupplier(ctx, tenantA, SupplierInput{
+		Name: " Acme Foods ", Phone: "12345", Email: "orders@acme.example", Address: "Market Road",
+	})
+	if err != nil || supplier.Name != "Acme Foods" || supplier.Status != "active" {
+		t.Fatalf("supplier=%+v err=%v", supplier, err)
+	}
+	if _, err := svc.CreateSupplier(ctx, tenantA, SupplierInput{Name: "acme foods"}); err != ErrSupplierDuplicate {
+		t.Fatalf("duplicate active supplier: %v", err)
+	}
+	cost := int64(13500)
+	source, err := svc.SaveSupplierSource(ctx, tenantA, supplier.ID, SupplierSourceInput{
+		VariantID: variantID, SupplierSKU: "SOAP-BLUE", CostMinor: &cost,
+	})
+	if err != nil || source.CostMinor == nil || *source.CostMinor != cost || source.ProductName != "Soap" {
+		t.Fatalf("supplier source=%+v err=%v", source, err)
+	}
+	if _, err := svc.SaveSupplierSource(ctx, tenantA, supplier.ID, SupplierSourceInput{
+		VariantID: variant.ID, SupplierSKU: "soap-blue",
+	}); err != ErrSupplierSKU {
+		t.Fatalf("duplicate supplier SKU: %v", err)
+	}
+	updatedCost := int64(14000)
+	if source, err = svc.SaveSupplierSource(ctx, tenantA, supplier.ID, SupplierSourceInput{
+		VariantID: variantID, SupplierSKU: "SOAP-BLUE", CostMinor: &updatedCost,
+	}); err != nil || source.CostMinor == nil || *source.CostMinor != updatedCost {
+		t.Fatalf("updated source=%+v err=%v", source, err)
+	}
+	if _, err := svc.SaveSupplierSource(ctx, tenantB, supplier.ID, SupplierSourceInput{VariantID: variantID}); err != ErrNotFound {
+		t.Fatalf("cross-tenant supplier link: %v", err)
+	}
+	if _, err := svc.ListSupplierSources(ctx, tenantB, supplier.ID, 50, 0); err != ErrNotFound {
+		t.Fatalf("cross-tenant supplier history: %v", err)
+	}
+	otherSuppliers, err := svc.ListSuppliers(ctx, tenantB, "", 50, 0)
+	if err != nil || len(otherSuppliers) != 0 {
+		t.Fatalf("tenant B saw suppliers %+v err=%v", otherSuppliers, err)
+	}
+	archivedSupplier := "archived"
+	if supplier, err = svc.UpdateSupplier(ctx, tenantA, supplier.ID, SupplierUpdateInput{Status: &archivedSupplier}); err != nil || supplier.Status != "archived" {
+		t.Fatalf("archive supplier=%+v err=%v", supplier, err)
+	}
+	linked, err := svc.ListSupplierSources(ctx, tenantA, supplier.ID, 50, 0)
+	if err != nil || len(linked) != 1 || linked[0].CostMinor == nil || *linked[0].CostMinor != updatedCost {
+		t.Fatalf("archived supplier history=%+v err=%v", linked, err)
+	}
+	if _, err := svc.SaveSupplierSource(ctx, tenantA, supplier.ID, SupplierSourceInput{VariantID: variant.ID}); err != ErrSupplierArchived {
+		t.Fatalf("archived supplier accepted link: %v", err)
+	}
+	replacement, err := svc.CreateSupplier(ctx, tenantA, SupplierInput{Name: "Acme Foods"})
+	if err != nil || replacement.ID == supplier.ID {
+		t.Fatalf("replacement active supplier=%+v err=%v", replacement, err)
+	}
+	searchResults, err := svc.ListSuppliers(ctx, tenantA, "acme", 1, 0)
+	if err != nil || len(searchResults) != 1 || searchResults[0].ID != replacement.ID {
+		t.Fatalf("active-first supplier search=%+v err=%v", searchResults, err)
+	}
+	searchResults, err = svc.ListSuppliers(ctx, tenantA, "12345", 10, 0)
+	if err != nil || len(searchResults) != 1 || searchResults[0].ID != supplier.ID {
+		t.Fatalf("archived supplier contact search=%+v err=%v", searchResults, err)
+	}
+	active := "active"
+	if _, err := svc.UpdateSupplier(ctx, tenantA, supplier.ID, SupplierUpdateInput{Status: &active}); err != ErrSupplierDuplicate {
+		t.Fatalf("restoring duplicate supplier: %v", err)
+	}
 
 	archived := "archived"
 	if _, err := svc.UpdateProduct(ctx, tenantA, product.ID, UpdateProductInput{Status: &archived}); err != nil {
@@ -216,6 +280,16 @@ func TestCreateProductWithOpeningStockPostgres(t *testing.T) {
 	newReceive.IdempotencyKey = id.New(id.StockMovement)
 	if _, _, err := svc.RecordMovement(ctx, tenantA, userID, newReceive); err != ErrArchived {
 		t.Fatalf("new receipt on archived product: %v", err)
+	}
+	linked, err = svc.ListSupplierSources(ctx, tenantA, supplier.ID, 50, 0)
+	if err != nil || len(linked) != 1 || linked[0].ProductStatus != "archived" {
+		t.Fatalf("archived product link history=%+v err=%v", linked, err)
+	}
+	if _, err := svc.SaveSupplierSource(ctx, tenantA, replacement.ID, SupplierSourceInput{VariantID: variantID}); err != ErrArchived {
+		t.Fatalf("archived product accepted supplier link: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT quantity FROM stock_levels WHERE tenant_id=$1 AND variant_id=$2`, tenantA, variantID).Scan(&balance); err != nil || balance != 6 {
+		t.Fatalf("supplier changes affected stock: balance=%d err=%v", balance, err)
 	}
 
 	other, err := svc.CreateProduct(ctx, tenantB, userID, CreateProductInput{Name: "Other soap", Variant: CreateVariantInput{PriceMinor: 150}})

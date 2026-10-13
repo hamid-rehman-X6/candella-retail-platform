@@ -30,6 +30,7 @@ const (
 	Store            Prefix = "str"
 	Product          Prefix = "prd"
 	ProductVariant   Prefix = "var"
+	Supplier         Prefix = "sup"
 	StockLevel       Prefix = "stk"
 	StockMovement    Prefix = "mov"
 	Order            Prefix = "ord"
