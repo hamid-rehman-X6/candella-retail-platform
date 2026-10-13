@@ -26,8 +26,22 @@ jobs:
       issue: ${{ steps.pick.outputs.issue }}
       branch: ${{ steps.pick.outputs.branch }}
     steps:
+      - name: Check whether AI implementation is configured
+        id: config
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo 'Automated implementation skipped: OPENAI_API_KEY is not configured. Ready issues remain in the queue.' >> "$GITHUB_STEP_SUMMARY"
+            echo '::notice::Automated implementation skipped because OPENAI_API_KEY is not configured.'
+          fi
       - uses: actions/checkout@v4
+        if: steps.config.outputs.enabled == 'true'
       - id: pick
+        if: steps.config.outputs.enabled == 'true'
         uses: actions/github-script@v7
         with:
           script: |
