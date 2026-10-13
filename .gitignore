@@ -49,4 +49,5 @@ infrastructure/docker/data/
 docs/
 CLAUDE.md
 SETUP.md
+HANDOFF.md
 .claude/

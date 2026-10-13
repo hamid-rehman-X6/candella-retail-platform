@@ -1,0 +1,39 @@
+[
+  {
+    "id": "products-inventory-foundation",
+    "title": "Products and inventory foundation for POS",
+    "priority": "P0",
+    "userNeed": "A retailer needs to create sellable products and know the available stock before using checkout.",
+    "acceptance": [
+      "A workspace can create, search, edit, archive, and restore products with variants, tenant-unique SKUs, optional barcodes, and integer minor-unit prices.",
+      "Owners and admins can receive stock and correct counts with a required reason; members can view but cannot modify stock.",
+      "Each stock operation records an append-only movement and changes the balance in one transaction without allowing negative stock.",
+      "Products, variants, stores, stock balances, and movements are isolated by tenant in the API and database.",
+      "A new workspace gets a default Main store; existing workspaces receive one through migration."
+    ],
+    "verification": [
+      "Frontend lint, typecheck, build and backend vet, build, tests pass.",
+      "Run migrations 0014 and 0015 on the owner's local database, then smoke-test create product, receive 5, count 3, edit SKU/price, archive/restore, member permissions, and cross-workspace isolation."
+    ],
+    "rollout": "Current implementation is on feature/products-inventory. The owner applies migrations 0014 and 0015 locally and performs the browser smoke test before merging."
+  },
+  {
+    "id": "pos-cash-checkout-mvp",
+    "title": "POS cash checkout MVP with atomic stock deduction",
+    "priority": "P1",
+    "userNeed": "A cashier needs to sell stocked products quickly and give the customer a clear receipt while inventory remains accurate.",
+    "acceptance": [
+      "An authorized cashier can search or scan a variant, add it to a cart, change quantity, and remove it from the cart.",
+      "Checkout shows line totals, grand total, cash received, and change in the workspace currency. Prices are captured on the sale and do not change after product edits.",
+      "Confirming a cash sale creates one order with line items and payment and records linked sale stock movements in one tenant-scoped transaction.",
+      "Concurrent or repeated checkout requests cannot oversell, duplicate a sale, or make stock negative; insufficient stock returns an actionable error.",
+      "The cashier can open a receipt for the completed sale. A failed sale leaves stock and payment unchanged.",
+      "Taxes, discounts, returns, offline checkout, and split payments are explicitly outside this first slice."
+    ],
+    "verification": [
+      "Add automated tests for totals, stock decrement, retry/idempotency, insufficient stock, concurrent checkout, tenant isolation, and cashier permissions.",
+      "Run frontend checks, backend checks, and migration checks. Manually sell one item, inspect the receipt and movement ledger, then verify stock changes only once."
+    ],
+    "rollout": "Depends on the Products and inventory foundation issue and migrations 0014/0015. Any new sales migration requires owner-run local migration and human review before merge."
+  }
+]

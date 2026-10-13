@@ -1,0 +1,57 @@
+name: Seed approved issues
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const entries = JSON.parse(fs.readFileSync('.github/roadmap.json', 'utf8'));
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const labels = {
+              'agent:triage': 'd4c5f9',
+              'agent:ready': '0e8a16',
+              'agent:working': '1d76db',
+              'agent:blocked': 'b60205',
+              'priority:P0': 'b60205',
+              'priority:P1': 'd93f0b',
+              'priority:P2': 'fbca04',
+              'priority:P3': 'c2e0c6',
+              'needs-human-review': '5319e7'
+            };
+            for (const [name, color] of Object.entries(labels)) {
+              try {
+                await github.rest.issues.createLabel({ owner, repo, name, color });
+              } catch (error) {
+                if (error.status !== 422) throw error;
+              }
+            }
+            const existing = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'all', per_page: 100
+            });
+            for (const entry of entries) {
+              if (!/^[a-z0-9][a-z0-9-]*$/.test(entry.id)) throw new Error('Invalid roadmap id');
+              if (!['P0', 'P1', 'P2', 'P3'].includes(entry.priority)) throw new Error('Invalid priority');
+              if (!entry.title || !entry.userNeed || !entry.acceptance || !entry.verification) {
+                throw new Error(`Incomplete roadmap issue: ${entry.id}`);
+              }
+              const marker = `<!-- candella-roadmap:${entry.id} -->`;
+              if (existing.some(item => !item.pull_request && item.body?.includes(marker))) continue;
+              const bullets = items => items.map(item => `- ${item}`).join('\n');
+              const body = `${marker}\n## User need\n${entry.userNeed}\n\n## Acceptance criteria\n${bullets(entry.acceptance)}\n\n## Verification\n${bullets(entry.verification)}\n\n## Dependencies / rollout\n${entry.rollout || 'None recorded.'}`;
+              await github.rest.issues.create({
+                owner, repo, title: entry.title, body,
+                labels: [`priority:${entry.priority}`, 'agent:triage']
+              });
+            }

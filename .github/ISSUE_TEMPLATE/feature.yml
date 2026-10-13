@@ -1,0 +1,33 @@
+name: Feature or fix
+description: Describe one reviewable piece of Candella work
+title: "[Feature] "
+labels: ["agent:triage"]
+body:
+  - type: textarea
+    id: user_need
+    attributes:
+      label: User need
+      description: Who needs this, and what problem does it solve?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable outcomes, including errors and permissions.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and rollout
+      description: Mention dependent issues, database migrations, or manual rollout steps.
+    validations:
+      required: false
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: What automated and manual checks should prove this works?
+    validations:
+      required: true

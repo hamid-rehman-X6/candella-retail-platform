@@ -27,6 +27,11 @@ const (
 	Tenant           Prefix = "tnt"
 	TenantMembership Prefix = "tmem"
 	PlatformAdmin    Prefix = "padm"
+	Store            Prefix = "str"
+	Product          Prefix = "prd"
+	ProductVariant   Prefix = "var"
+	StockLevel       Prefix = "stk"
+	StockMovement    Prefix = "mov"
 )
 
 // New returns a new prefixed ID, e.g. New(id.User) -> "usr_4f8K2mQpXrTz".
