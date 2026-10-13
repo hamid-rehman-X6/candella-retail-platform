@@ -155,13 +155,6 @@ jobs:
           if [ "${{ steps.commit.outputs.sensitive }}" = 'true' ]; then
             gh pr edit "$BRANCH" --add-label needs-human-review
           fi
-      - name: Enable guarded auto-merge
-        if: vars.CANDELLA_AUTO_MERGE == 'true' && steps.commit.outputs.sensitive == 'false'
-        env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
-          BRANCH: ${{ needs.pick.outputs.branch }}
-        run: gh pr merge "$BRANCH" --auto --squash --delete-branch
-
   recover:
     needs: [pick, implement]
     if: always() && needs.pick.outputs.issue != '' && needs.implement.result == 'failure'
