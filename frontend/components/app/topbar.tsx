@@ -75,7 +75,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
               className="fixed inset-0 z-40"
               onClick={() => setWsOpen(false)}
             />
-            <div className="glass absolute top-full left-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl p-1.5 shadow-xl">
+            <div className="absolute top-full left-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-line bg-canvas-raised p-1.5 shadow-2xl">
               <p className="px-3 py-2 text-xs tracking-wide text-subtle uppercase">
                 Workspaces
               </p>
@@ -102,7 +102,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
               ))}
               <div className="my-1 h-px bg-line" />
               <Link
-                href="/onboarding"
+                href={`/onboarding?from=${encodeURIComponent(current.slug)}`}
                 onClick={() => setWsOpen(false)}
                 className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted transition-colors hover:bg-white/5 hover:text-foreground"
               >

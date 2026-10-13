@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { LogoMark } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/auth/text-field";
@@ -15,10 +16,14 @@ import { cn } from "@/lib/cn";
 export function OnboardingForm({
   userName,
   signedInWith,
+  returnHref,
+  returnLabel,
 }: {
   userName: string;
   /** Email to confirm in the banner, when arriving straight from Google. */
   signedInWith?: string;
+  returnHref: string;
+  returnLabel: string;
 }) {
   const router = useRouter();
   const firstName = userName.split(" ")[0] || userName;
@@ -57,6 +62,13 @@ export function OnboardingForm({
 
   return (
     <div className="mx-auto w-full max-w-lg">
+      <Link
+        href={returnHref}
+        className="mb-8 inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm text-muted transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-accent"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {returnLabel}
+      </Link>
       <div className="flex flex-col items-center text-center">
         <LogoMark className="h-12 w-12 rounded-2xl" />
         <h1 className="mt-6 text-2xl font-semibold tracking-tight sm:text-3xl">
