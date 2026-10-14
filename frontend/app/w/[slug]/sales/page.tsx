@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
+import { useStoreSelection } from "@/lib/use-store-selection";
 import {
   formatMoney,
   listStock,
@@ -23,9 +24,17 @@ const button =
 
 export default function SalesPage() {
   const { current } = useApp();
+  const {
+    stores,
+    storeId,
+    selectedStore,
+    select: selectStore,
+    error: storeError,
+  } = useStoreSelection(current.id);
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
   const requestKey = useRef<string | null>(null);
+  const scanGeneration = useRef(0);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<StockItem[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -34,25 +43,40 @@ export default function SalesPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  function changeStore(id: string) {
+    if (busy) return;
+    scanGeneration.current++;
+    setCart([]);
+    setResults([]);
+    setCash("");
+    setSearch("");
+    requestKey.current = null;
+    setLoading(true);
+    selectStore(id);
+  }
+
   useEffect(() => {
+    if (!storeId) return;
     let cancelled = false;
+    const generation = scanGeneration.current;
     const timer = setTimeout(
       async () => {
         try {
-          const data = await listStock(current.id, search);
-          if (!cancelled) {
+          const data = await listStock(current.id, storeId, search);
+          if (!cancelled && generation === scanGeneration.current) {
             setResults(data.items);
             setError("");
           }
         } catch (e) {
-          if (!cancelled) {
+          if (!cancelled && generation === scanGeneration.current) {
             setResults([]);
             setError(
               e instanceof Error ? e.message : "Could not load products.",
             );
           }
         } finally {
-          if (!cancelled) setLoading(false);
+          if (!cancelled && generation === scanGeneration.current)
+            setLoading(false);
         }
       },
       search ? 200 : 0,
@@ -61,7 +85,7 @@ export default function SalesPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [current.id, search]);
+  }, [current.id, storeId, search]);
 
   function add(item: StockItem) {
     if (item.quantity <= 0) {
@@ -96,11 +120,14 @@ export default function SalesPage() {
 
   async function scan(e: FormEvent) {
     e.preventDefault();
+    if (!storeId) return;
     const query = search.trim();
     if (!query) return;
+    const generation = scanGeneration.current;
     try {
       // Fetch on Enter as well, so a fast barcode scanner does not wait for debounce.
-      const data = await listStock(current.id, query);
+      const data = await listStock(current.id, storeId, query);
+      if (generation !== scanGeneration.current) return;
       setResults(data.items);
       const exact = data.items.find(
         (item) =>
@@ -111,6 +138,7 @@ export default function SalesPage() {
       else if (data.items.length === 0)
         setError("No matching product. Check the SKU or barcode.");
     } catch (e) {
+      if (generation !== scanGeneration.current) return;
       setError(e instanceof Error ? e.message : "Could not search products.");
     }
   }
@@ -141,6 +169,7 @@ export default function SalesPage() {
   const cashMinor = parseMoney(cash, current.currencyCode);
   const change = cashMinor === null ? null : cashMinor - total;
   const canSell =
+    !!storeId &&
     cart.length > 0 &&
     Number.isSafeInteger(total) &&
     total <= 1_000_000_000_000 &&
@@ -156,6 +185,7 @@ export default function SalesPage() {
     requestKey.current ??= crypto.randomUUID();
     try {
       const { sale } = await checkout(current.id, {
+        storeId,
         idempotencyKey: requestKey.current,
         items: cart.map(({ item, quantity }) => ({
           variantId: item.variantId,
@@ -199,6 +229,39 @@ export default function SalesPage() {
           className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
         >
           {error}
+        </p>
+      )}
+      <label className="block max-w-xs text-sm font-medium">
+        Selling from
+        <select
+          aria-label="Selling store"
+          className={`${field} mt-2`}
+          value={storeId}
+          onChange={(event) => changeStore(event.target.value)}
+          disabled={busy}
+        >
+          {!storeId && <option value="">Select a store</option>}
+          {stores
+            .filter((store) => store.accessible)
+            .map((store) => (
+              <option key={store.id} value={store.id}>
+                {store.name}
+                {store.isDefault ? " (default)" : ""}
+              </option>
+            ))}
+        </select>
+        <span className="mt-1 block text-xs text-muted">
+          Cart clears when you switch stores so stock is never mixed.
+        </span>
+      </label>
+      {storeError && (
+        <p role="alert" className="text-sm text-red-300">
+          {storeError}
+        </p>
+      )}
+      {selectedStore && (
+        <p className="text-sm text-muted">
+          Current selling location: {selectedStore.name}
         </p>
       )}
 

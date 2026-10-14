@@ -12,6 +12,8 @@ export type SaleItem = {
 
 export type Sale = {
   id: string;
+  storeId: string;
+  storeName: string;
   orderNumber: string;
   cashierId: string;
   cashierName: string;
@@ -28,6 +30,8 @@ export type Sale = {
 export type SaleSummary = Pick<
   Sale,
   | "id"
+  | "storeId"
+  | "storeName"
   | "orderNumber"
   | "cashierId"
   | "cashierName"
@@ -59,6 +63,7 @@ export const listSales = (tenantId: string, filters: SalesFilters) => {
 };
 
 export type CheckoutInput = {
+  storeId: string;
   idempotencyKey: string;
   items: { variantId: string; quantity: number }[];
   cashReceivedMinor: number;

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/pkg/id"
 )
 
@@ -39,6 +40,9 @@ func (r *importPostgres) PreviewImport(ctx context.Context, tenantID, mode strin
 	}
 	var preview *ImportPreview
 	err = withCatalogTx(ctx, r.db, tenantID, func(tx pgx.Tx) error {
+		if _, err := store.Resolve(ctx, tx, tenantID); err != nil {
+			return err
+		}
 		var err error
 		preview, _, err = evaluateImport(ctx, tx, tenantID, currency, mode, rows)
 		return err
@@ -213,12 +217,16 @@ func (r *importPostgres) ConfirmImport(ctx context.Context, tenantID, userID, mo
 	}
 	result := &ImportResult{}
 	err = withCatalogTx(ctx, r.db, tenantID, func(tx pgx.Tx) error {
+		location, err := store.Resolve(ctx, tx, tenantID)
+		if err != nil {
+			return err
+		}
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1),hashtext($2))`, tenantID, key); err != nil {
 			return err
 		}
 		var oldHash string
 		var oldRows []byte
-		err := tx.QueryRow(ctx, `SELECT request_hash,created_count,updated_count,result_rows FROM catalog_import_batches
+		err = tx.QueryRow(ctx, `SELECT request_hash,created_count,updated_count,result_rows FROM catalog_import_batches
 			WHERE tenant_id=$1 AND idempotency_key=$2`, tenantID, key).Scan(&oldHash, &result.Created, &result.Updated, &oldRows)
 		if err == nil {
 			if oldHash != hash {
@@ -241,10 +249,7 @@ func (r *importPostgres) ConfirmImport(ctx context.Context, tenantID, userID, mo
 			return ErrImportChanged
 		}
 		if mode == "create" {
-			storeID, err := defaultStore(ctx, tx, tenantID)
-			if err != nil {
-				return err
-			}
+			storeID := location.ID
 			productIDs := map[string]string{}
 			for index, row := range candidates {
 				productKey := strings.ToLower(row.name)
@@ -332,11 +337,14 @@ func (r *importPostgres) ExportProducts(ctx context.Context, tenantID string) ([
 	}
 	result := [][]string{importColumns}
 	err = withCatalogTx(ctx, r.db, tenantID, func(tx pgx.Tx) error {
+		location, err := store.Resolve(ctx, tx, tenantID)
+		if err != nil {
+			return err
+		}
 		rows, err := tx.Query(ctx, `SELECT p.name,v.name,v.sku,COALESCE(v.barcode,''),v.price_minor,COALESCE(s.quantity,0)
 			FROM product_variants v JOIN products p ON p.tenant_id=v.tenant_id AND p.id=v.product_id
-			LEFT JOIN stores st ON st.tenant_id=v.tenant_id AND st.is_default
-			LEFT JOIN stock_levels s ON s.tenant_id=v.tenant_id AND s.store_id=st.id AND s.variant_id=v.id
-			WHERE v.tenant_id=$1 ORDER BY p.name,v.name,v.id LIMIT 50001`, tenantID)
+			LEFT JOIN stock_levels s ON s.tenant_id=v.tenant_id AND s.store_id=$2 AND s.variant_id=v.id
+			WHERE v.tenant_id=$1 ORDER BY p.name,v.name,v.id LIMIT 50001`, tenantID, location.ID)
 		if err != nil {
 			return err
 		}

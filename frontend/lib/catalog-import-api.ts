@@ -46,10 +46,11 @@ async function upload<T>(
   return payload.data;
 }
 
-function uploadForm(file: File, mode: "create" | "update") {
+function uploadForm(file: File, mode: "create" | "update", storeId: string) {
   const form = new FormData();
   form.set("file", file);
   form.set("mode", mode);
+  form.set("storeId", storeId);
   return form;
 }
 
@@ -57,21 +58,23 @@ export const previewProductImport = (
   tenantId: string,
   file: File,
   mode: "create" | "update",
+  storeId: string,
 ) =>
   upload<{ preview: ImportPreview }>(
     "/products/import/preview",
     tenantId,
-    uploadForm(file, mode),
+    uploadForm(file, mode, storeId),
   );
 
 export const confirmProductImport = (
   tenantId: string,
   file: File,
   mode: "create" | "update",
+  storeId: string,
   previewHash: string,
   idempotencyKey: string,
 ) => {
-  const form = uploadForm(file, mode);
+  const form = uploadForm(file, mode, storeId);
   form.set("previewHash", previewHash);
   form.set("idempotencyKey", idempotencyKey);
   return upload<{ result: ImportResult }>(
@@ -84,11 +87,12 @@ export const confirmProductImport = (
 export async function downloadProductCSV(
   tenantId: string,
   kind: "template" | "export",
+  storeId: string,
 ) {
   const path =
     kind === "template"
       ? "/products/import/template.csv"
-      : "/products/export.csv";
+      : `/products/export.csv?storeId=${encodeURIComponent(storeId)}`;
   const response = await fetch(`${API_BASE_URL}/api/v1${path}`, {
     credentials: "include",
     headers: { [TENANT_HEADER]: tenantId },

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { ArrowDownToLine, ClipboardCheck, Search, X } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
+import { useStoreSelection } from "@/lib/use-store-selection";
 import {
   getCatalogSummary,
   listMovements,
@@ -27,6 +28,13 @@ const button =
 
 export default function InventoryPage() {
   const { current } = useApp();
+  const {
+    stores,
+    storeId,
+    selectedStore,
+    select: selectStore,
+    error: storeError,
+  } = useStoreSelection(current.id);
   const editable = current.role === "owner" || current.role === "admin";
   const [items, setItems] = useState<StockItem[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -40,31 +48,36 @@ export default function InventoryPage() {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const requestKey = useRef<string | null>(null);
+  const loadID = useRef(0);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
 
   const refresh = useCallback(
     async (q = search) => {
+      if (!storeId) return;
+      const requestID = ++loadID.current;
       setLoading(true);
       setError("");
       try {
         const [stock, ledger, counts] = await Promise.all([
-          listStock(current.id, q),
-          listMovements(current.id),
-          getCatalogSummary(current.id),
+          listStock(current.id, storeId, q),
+          listMovements(current.id, storeId),
+          getCatalogSummary(current.id, storeId),
         ]);
+        if (requestID !== loadID.current) return;
         setItems(stock.items);
         setMovements(ledger.movements);
         setSummary(counts.summary);
         setOffset(0);
         setHasMore(stock.items.length === 100);
       } catch (e) {
+        if (requestID !== loadID.current) return;
         setError(e instanceof Error ? e.message : "Could not load inventory.");
       } finally {
-        setLoading(false);
+        if (requestID === loadID.current) setLoading(false);
       }
     },
-    [current.id, search],
+    [current.id, storeId, search],
   );
 
   useEffect(() => {
@@ -72,7 +85,18 @@ export default function InventoryPage() {
       void refresh(search);
     }, 250);
     return () => clearTimeout(timer);
-  }, [refresh, search]);
+  }, [refresh, search, storeId]);
+
+  function changeStore(id: string) {
+    if (busy) return;
+    loadID.current++;
+    setItems([]);
+    setMovements([]);
+    setSummary(null);
+    setSelected(null);
+    requestKey.current = null;
+    selectStore(id);
+  }
 
   function open(item: StockItem, nextKind: "receive" | "count") {
     if (busy) return;
@@ -111,6 +135,7 @@ export default function InventoryPage() {
       if (kind === "receive")
         await recordMovement(current.id, {
           idempotencyKey: requestKey.current,
+          storeId,
           variantId: selected.variantId,
           kind,
           quantity: amount,
@@ -119,6 +144,7 @@ export default function InventoryPage() {
       else
         await recordMovement(current.id, {
           idempotencyKey: requestKey.current,
+          storeId,
           variantId: selected.variantId,
           kind,
           countedQuantity: amount,
@@ -137,12 +163,15 @@ export default function InventoryPage() {
   }
   async function loadMore() {
     const nextOffset = offset + 100;
+    const requestID = loadID.current;
     try {
-      const result = await listStock(current.id, search, nextOffset);
+      const result = await listStock(current.id, storeId, search, nextOffset);
+      if (requestID !== loadID.current) return;
       setItems((previous) => [...previous, ...result.items]);
       setOffset(nextOffset);
       setHasMore(result.items.length === 100);
     } catch (e) {
+      if (requestID !== loadID.current) return;
       setError(e instanceof Error ? e.message : "Could not load more stock.");
     }
   }
@@ -152,9 +181,35 @@ export default function InventoryPage() {
       <div>
         <h1 className="text-2xl font-semibold">Inventory</h1>
         <p className="mt-1 text-sm text-muted">
-          Stock at Main store. Every change is recorded in the movement history.
+          Stock at {selectedStore?.name ?? "the selected store"}. Every change
+          is recorded in the movement history.
         </p>
       </div>
+      <label className="block max-w-xs text-sm font-medium">
+        Store
+        <select
+          aria-label="Inventory store"
+          className={`${field} mt-2`}
+          value={storeId}
+          onChange={(event) => changeStore(event.target.value)}
+          disabled={busy}
+        >
+          {!storeId && <option value="">Select a store</option>}
+          {stores
+            .filter((store) => store.accessible)
+            .map((store) => (
+              <option key={store.id} value={store.id}>
+                {store.name}
+                {store.isDefault ? " (default)" : ""}
+              </option>
+            ))}
+        </select>
+      </label>
+      {storeError && (
+        <p role="alert" className="text-sm text-red-300">
+          {storeError}
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-3">
         {[
           ["Active variants", summary?.variantCount ?? "—"],

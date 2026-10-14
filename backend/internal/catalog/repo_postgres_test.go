@@ -13,6 +13,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
+	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/migrations"
 	"candella-ecosystem/backend/pkg/id"
 )
@@ -100,10 +101,6 @@ func TestCreateProductWithOpeningStockPostgres(t *testing.T) {
 	if err != nil || variant.SKU == "" || variant.SKU == product.Variants[0].SKU {
 		t.Fatalf("new variant=%+v err=%v", variant, err)
 	}
-	otherProducts, err := svc.ListProducts(ctx, tenantB, "", 50, 0)
-	if err != nil || len(otherProducts) != 0 {
-		t.Fatalf("cross-tenant products=%+v err=%v", otherProducts, err)
-	}
 	// A tenant without a default store cannot receive opening stock. The product
 	// and variant inserts must roll back with the failed stock operation.
 	if _, err := svc.CreateProduct(ctx, tenantB, userID, CreateProductInput{
@@ -117,6 +114,10 @@ func TestCreateProductWithOpeningStockPostgres(t *testing.T) {
 	// The missing-store rollback is verified; add tenant B's store so the
 	// cross-tenant request reaches the variant isolation check.
 	mustExec(`INSERT INTO stores (id,tenant_id,name,is_default) VALUES ($1,$2,'Main',true)`, id.New(id.Store), tenantB)
+	otherProducts, err := svc.ListProducts(ctx, tenantB, "", 50, 0)
+	if err != nil || len(otherProducts) != 0 {
+		t.Fatalf("cross-tenant products=%+v err=%v", otherProducts, err)
+	}
 
 	variantID := product.Variants[0].ID
 	receiveKey := id.New(id.StockMovement)
@@ -311,5 +312,37 @@ func TestCreateProductWithOpeningStockPostgres(t *testing.T) {
 	otherMovement, created, err := svc.RecordMovement(ctx, tenantB, userID, otherReceive)
 	if err != nil || !created || otherMovement.QuantityAfter != 1 {
 		t.Fatalf("tenant B receipt=%+v created=%t err=%v", otherMovement, created, err)
+	}
+	branchID := id.New(id.Store)
+	mustExec(`INSERT INTO stores (id,tenant_id,name,is_default) VALUES ($1,$2,'Branch',false)`, branchID, tenantB)
+	mustExec(`INSERT INTO tenant_memberships (id,tenant_id,user_id,role,status) VALUES ($1,$2,$3,'member','active')`, id.New(id.TenantMembership), tenantB, userID)
+	branchCtx := store.WithSelection(ctx, branchID, userID, "member")
+	if _, _, err := svc.ListStock(branchCtx, tenantB, "", 50, 0); err != store.ErrAccess {
+		t.Fatalf("unassigned cashier could list branch: %v", err)
+	}
+	mustExec(`INSERT INTO store_access (tenant_id,store_id,user_id) VALUES ($1,$2,$3)`, tenantB, branchID, userID)
+	branchReceive := MovementInput{StoreID: branchID, IdempotencyKey: id.New(id.StockMovement), VariantID: other.Variants[0].ID, Kind: "receive", Quantity: ptr(3)}
+	branchMovement, created, err := svc.RecordMovement(branchCtx, tenantB, userID, branchReceive)
+	if err != nil || !created || branchMovement.StoreID != branchID || branchMovement.QuantityAfter != 3 {
+		t.Fatalf("branch receipt=%+v created=%t err=%v", branchMovement, created, err)
+	}
+	branchItems, gotStore, err := svc.ListStock(branchCtx, tenantB, "", 50, 0)
+	if err != nil || gotStore != branchID || len(branchItems) != 1 || branchItems[0].Quantity != 3 {
+		t.Fatalf("branch stock=%+v store=%s err=%v", branchItems, gotStore, err)
+	}
+	defaultItems, _, err := svc.ListStock(ctx, tenantB, "", 50, 0)
+	if err != nil || len(defaultItems) != 1 || defaultItems[0].Quantity != 1 {
+		t.Fatalf("branch changed default stock: %+v err=%v", defaultItems, err)
+	}
+	branchSummary, err := svc.Summary(branchCtx, tenantB)
+	if err != nil || branchSummary.UnitsOnHand != 3 {
+		t.Fatalf("branch summary=%+v err=%v", branchSummary, err)
+	}
+	branchHistory, err := svc.ListMovements(branchCtx, tenantB, 50, 0)
+	if err != nil || len(branchHistory) != 1 || branchHistory[0].StoreID != branchID {
+		t.Fatalf("branch ledger=%+v err=%v", branchHistory, err)
+	}
+	if _, _, err := svc.ListStock(store.WithSelection(ctx, storeID, userID, "member"), tenantB, "", 50, 0); err != store.ErrNotFound {
+		t.Fatalf("cross-tenant store was visible: %v", err)
 	}
 }

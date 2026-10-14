@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { ArrowLeft, Download, Upload } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
+import { useStoreSelection } from "@/lib/use-store-selection";
 import {
   confirmProductImport,
   downloadProductCSV,
@@ -14,6 +15,13 @@ import {
 
 export default function ImportProductsPage() {
   const { current } = useApp();
+  const {
+    stores,
+    storeId,
+    selectedStore,
+    select: selectStore,
+    error: storeError,
+  } = useStoreSelection(current.id);
   const [file, setFile] = useState<File | null>(null);
   const [mode, setMode] = useState<"create" | "update">("create");
   const [preview, setPreview] = useState<ImportPreview | null>(null);
@@ -31,13 +39,18 @@ export default function ImportProductsPage() {
   }
 
   async function inspect() {
-    if (!file) return;
+    if (!file || !storeId) return;
     setBusy(true);
     setError("");
     setPreview(null);
     setResult(null);
     try {
-      const response = await previewProductImport(current.id, file, mode);
+      const response = await previewProductImport(
+        current.id,
+        file,
+        mode,
+        storeId,
+      );
       setPreview(response.preview);
       importKey.current = crypto.randomUUID();
     } catch (cause) {
@@ -52,7 +65,7 @@ export default function ImportProductsPage() {
   }
 
   async function confirm() {
-    if (!file || !preview || preview.invalidCount > 0) return;
+    if (!file || !preview || preview.invalidCount > 0 || !storeId) return;
     setBusy(true);
     setError("");
     importKey.current ??= crypto.randomUUID();
@@ -61,6 +74,7 @@ export default function ImportProductsPage() {
         current.id,
         file,
         mode,
+        storeId,
         preview.hash,
         importKey.current,
       );
@@ -77,7 +91,7 @@ export default function ImportProductsPage() {
 
   async function download(kind: "template" | "export") {
     try {
-      await downloadProductCSV(current.id, kind);
+      await downloadProductCSV(current.id, kind, storeId);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Download failed.");
     }
@@ -135,8 +149,40 @@ export default function ImportProductsPage() {
           {error}
         </p>
       )}
+      {storeError && (
+        <p role="alert" className="text-sm text-red-300">
+          {storeError}
+        </p>
+      )}
 
       <section className="space-y-4 rounded-2xl border border-line bg-surface p-5">
+        <label className="block max-w-xs text-sm font-medium">
+          Stock location
+          <select
+            aria-label="CSV stock store"
+            value={storeId}
+            disabled={busy}
+            onChange={(event) => {
+              selectStore(event.target.value);
+              reset();
+            }}
+            className="mt-2 w-full rounded-xl border border-line bg-canvas p-2.5 text-sm"
+          >
+            {!storeId && <option value="">Select a store</option>}
+            {stores
+              .filter((location) => location.accessible)
+              .map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.name}
+                </option>
+              ))}
+          </select>
+        </label>
+        <p className="text-sm text-muted">
+          New products receive opening stock at{" "}
+          {selectedStore?.name ?? "the selected store"}. Export shows stock for
+          that location.
+        </p>
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
@@ -147,6 +193,7 @@ export default function ImportProductsPage() {
           </button>
           <button
             type="button"
+            disabled={!storeId}
             onClick={() => void download("export")}
             className="inline-flex items-center gap-2 rounded-xl border border-line px-4 py-2.5 text-sm"
           >
@@ -194,7 +241,7 @@ export default function ImportProductsPage() {
         </p>
         <button
           type="button"
-          disabled={!file || busy}
+          disabled={!file || !storeId || busy}
           onClick={() => void inspect()}
           className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-black disabled:opacity-50"
         >

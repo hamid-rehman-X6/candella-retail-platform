@@ -42,6 +42,7 @@ type Summary struct {
 
 type Movement struct {
 	ID             string    `json:"id"`
+	StoreID        string    `json:"storeId"`
 	OrderID        *string   `json:"orderId"`
 	VariantID      string    `json:"variantId"`
 	ProductName    string    `json:"productName"`
@@ -56,6 +57,7 @@ type Movement struct {
 }
 
 type CreateProductInput struct {
+	StoreID         string             `json:"storeId"`
 	Name            string             `json:"name"`
 	Description     string             `json:"description"`
 	Variant         CreateVariantInput `json:"variant"`
@@ -83,6 +85,7 @@ type UpdateVariantInput struct {
 }
 
 type MovementInput struct {
+	StoreID         string `json:"storeId"`
 	IdempotencyKey  string `json:"idempotencyKey"`
 	VariantID       string `json:"variantId"`
 	Kind            string `json:"kind"`

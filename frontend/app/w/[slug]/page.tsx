@@ -6,15 +6,18 @@ import { Receipt, Store, Package, Boxes, Check, Sparkles } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
 import { industryLabel } from "@/lib/industries";
 import { getCatalogSummary, type CatalogSummary } from "@/lib/catalog-api";
+import { useStoreSelection } from "@/lib/use-store-selection";
 
 export default function DashboardPage() {
   const { user, current } = useApp();
+  const { storeId, selectedStore } = useStoreSelection(current.id);
   const firstName = user.fullName.split(" ")[0] || user.fullName;
   const [summary, setSummary] = useState<CatalogSummary | null>(null);
 
   useEffect(() => {
+    if (!storeId) return;
     let active = true;
-    getCatalogSummary(current.id)
+    getCatalogSummary(current.id, storeId)
       .then(({ summary: result }) => {
         if (active) setSummary(result);
       })
@@ -24,7 +27,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [current.id]);
+  }, [current.id, storeId]);
 
   const kpis = [
     {
@@ -49,7 +52,7 @@ export default function DashboardPage() {
       label: "Stock units",
       value: summary?.unitsOnHand ?? "—",
       icon: Boxes,
-      note: "At Main store",
+      note: selectedStore ? `At ${selectedStore.name}` : "Select a store",
     },
   ];
 

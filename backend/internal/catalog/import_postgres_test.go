@@ -78,19 +78,19 @@ func TestCatalogImportPostgres(t *testing.T) {
 	svc := NewImportService(NewImportPostgresRepository(pool))
 	rows := []ImportRow{{Line: 2, ProductName: "School shirt", VariantName: "Small", SKU: "SHIRT-S", SellingPrice: "150.50", OpeningQuantity: "7"},
 		{Line: 3, ProductName: "School shirt", VariantName: "Large", SKU: "SHIRT-L", SellingPrice: "200", OpeningQuantity: "0"}}
-	preview, err := svc.Preview(ctx, tenantA, "create", rows)
+	preview, err := svc.Preview(ctx, tenantA, "create", "", rows)
 	if err != nil || preview.CreateCount != 2 || preview.InvalidCount != 0 {
 		t.Fatalf("preview=%+v err=%v", preview, err)
 	}
 	key := id.New("import")
-	result, err := svc.Confirm(ctx, tenantA, userID, "create", key, preview.Hash, rows)
+	result, err := svc.Confirm(ctx, tenantA, userID, "create", "", key, preview.Hash, rows)
 	if err != nil || result.Created != 2 || result.Replayed {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}
 	if len(result.Rows) != 2 || result.Rows[0].SKU != "SHIRT-S" || result.Rows[0].Action != "create" {
 		t.Fatalf("missing row-level result: %+v", result.Rows)
 	}
-	replayed, err := svc.Confirm(ctx, tenantA, userID, "create", key, preview.Hash, rows)
+	replayed, err := svc.Confirm(ctx, tenantA, userID, "create", "", key, preview.Hash, rows)
 	if err != nil || !replayed.Replayed || replayed.Created != 2 {
 		t.Fatalf("retry=%+v err=%v", replayed, err)
 	}
@@ -104,11 +104,11 @@ func TestCatalogImportPostgres(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM product_variants WHERE tenant_id=$1`, tenantA).Scan(&variants); err != nil || variants != 2 {
 		t.Fatalf("variants=%d err=%v", variants, err)
 	}
-	duplicate, err := svc.Preview(ctx, tenantA, "create", rows)
+	duplicate, err := svc.Preview(ctx, tenantA, "create", "", rows)
 	if err != nil || duplicate.InvalidCount != 2 {
 		t.Fatalf("duplicate preview=%+v err=%v", duplicate, err)
 	}
-	other, err := svc.Preview(ctx, tenantB, "create", rows[:1])
+	other, err := svc.Preview(ctx, tenantB, "create", "", rows[:1])
 	if err != nil || other.InvalidCount != 0 {
 		t.Fatalf("cross-tenant preview=%+v err=%v", other, err)
 	}
@@ -117,11 +117,11 @@ func TestCatalogImportPostgres(t *testing.T) {
 		t.Fatalf("cross-tenant export=%+v err=%v", otherExport, err)
 	}
 	update := []ImportRow{{Line: 2, ProductName: "School shirt", VariantName: "Small", SKU: "SHIRT-S", SellingPrice: "140", OpeningQuantity: "0"}}
-	updatePreview, err := svc.Preview(ctx, tenantA, "update", update)
+	updatePreview, err := svc.Preview(ctx, tenantA, "update", "", update)
 	if err != nil || updatePreview.UpdateCount != 1 {
 		t.Fatalf("update preview=%+v err=%v", updatePreview, err)
 	}
-	updated, err := svc.Confirm(ctx, tenantA, userID, "update", id.New("import"), updatePreview.Hash, update)
+	updated, err := svc.Confirm(ctx, tenantA, userID, "update", "", id.New("import"), updatePreview.Hash, update)
 	if err != nil || updated.Updated != 1 {
 		t.Fatalf("update=%+v err=%v", updated, err)
 	}
@@ -133,7 +133,7 @@ func TestCatalogImportPostgres(t *testing.T) {
 		t.Fatalf("stock changed on update: %d err=%v", quantity, err)
 	}
 	update[0].OpeningQuantity = "3"
-	bad, err := svc.Preview(ctx, tenantA, "update", update)
+	bad, err := svc.Preview(ctx, tenantA, "update", "", update)
 	if err != nil || bad.InvalidCount != 1 {
 		t.Fatalf("stock update accepted: %+v err=%v", bad, err)
 	}

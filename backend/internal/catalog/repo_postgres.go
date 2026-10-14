@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/pkg/database"
 	"candella-ecosystem/backend/pkg/id"
 )
@@ -33,6 +34,10 @@ func withCatalogTx(ctx context.Context, db *pgxpool.Pool, tenantID string, fn fu
 func (r *postgresRepository) ListProducts(ctx context.Context, tenantID, search string, limit, offset int) ([]Product, error) {
 	out := make([]Product, 0)
 	err := withCatalogTx(ctx, r.db, tenantID, func(tx pgx.Tx) error {
+		location, err := store.Resolve(ctx, tx, tenantID)
+		if err != nil {
+			return err
+		}
 		rows, err := tx.Query(ctx, `
 			SELECT p.id, p.name, p.description, p.status, p.created_at,
 			       v.id, v.name, v.sku, v.barcode, v.price_minor, COALESCE(s.quantity, 0)
@@ -42,9 +47,8 @@ func (r *postgresRepository) ListProducts(ctx context.Context, tenantID, search 
 			                   AND sv.product_id = p.id AND (sv.sku ILIKE '%' || $2 || '%' OR sv.barcode ILIKE '%' || $2 || '%')))
 			      ORDER BY p.created_at DESC, p.id DESC LIMIT $3 OFFSET $4) p
 			JOIN product_variants v ON v.tenant_id = p.tenant_id AND v.product_id = p.id
-			LEFT JOIN stores st ON st.tenant_id = p.tenant_id AND st.is_default
-			LEFT JOIN stock_levels s ON s.tenant_id = p.tenant_id AND s.variant_id = v.id AND s.store_id = st.id
-			ORDER BY p.created_at DESC, p.id DESC, v.created_at, v.id`, tenantID, search, limit, offset)
+			LEFT JOIN stock_levels s ON s.tenant_id = p.tenant_id AND s.variant_id = v.id AND s.store_id = $5
+			ORDER BY p.created_at DESC, p.id DESC, v.created_at, v.id`, tenantID, search, limit, offset, location.ID)
 		if err != nil {
 			return err
 		}
@@ -94,10 +98,11 @@ func (r *postgresRepository) CreateProduct(ctx context.Context, tenantID, userID
 		if err != nil || in.InitialQuantity == nil || *in.InitialQuantity == 0 {
 			return err
 		}
-		storeID, err := defaultStore(ctx, tx, tenantID)
+		location, err := store.Resolve(ctx, tx, tenantID)
 		if err != nil {
 			return err
 		}
+		storeID := location.ID
 		v.Quantity = *in.InitialQuantity
 		if _, err := tx.Exec(ctx, `INSERT INTO stock_levels (id, tenant_id, store_id, variant_id, quantity)
 			VALUES ($1,$2,$3,$4,$5)`, id.New(id.StockLevel), tenantID, storeID, v.ID, v.Quantity); err != nil {
@@ -223,10 +228,11 @@ func defaultStore(ctx context.Context, tx pgx.Tx, tenantID string) (string, erro
 func (r *postgresRepository) Summary(ctx context.Context, tenantID string) (*Summary, error) {
 	s := &Summary{}
 	err := withCatalogTx(ctx, r.db, tenantID, func(tx pgx.Tx) error {
-		storeID, err := defaultStore(ctx, tx, tenantID)
+		location, err := store.Resolve(ctx, tx, tenantID)
 		if err != nil {
 			return err
 		}
+		storeID := location.ID
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM products WHERE tenant_id=$1 AND status='active'`, tenantID).Scan(&s.ProductCount); err != nil {
 			return err
 		}
@@ -245,10 +251,11 @@ func (r *postgresRepository) ListStock(ctx context.Context, tenantID, search str
 	var storeID string
 	err := withCatalogTx(ctx, r.db, tenantID, func(tx pgx.Tx) error {
 		var err error
-		storeID, err = defaultStore(ctx, tx, tenantID)
+		location, err := store.Resolve(ctx, tx, tenantID)
 		if err != nil {
 			return err
 		}
+		storeID = location.ID
 		rows, err := tx.Query(ctx, `SELECT v.id, p.id, p.name, v.name, v.sku, v.barcode, v.price_minor,
 			COALESCE(s.quantity, 0) FROM product_variants v
 			JOIN products p ON p.tenant_id=v.tenant_id AND p.id=v.product_id
@@ -275,9 +282,9 @@ func (r *postgresRepository) ListStock(ctx context.Context, tenantID, search str
 
 func movementRequestHash(userID string, in MovementInput) string {
 	payload, _ := json.Marshal(struct {
-		UserID, VariantID, Kind, Note string
-		Quantity, CountedQuantity     *int64
-	}{userID, in.VariantID, in.Kind, in.Note, in.Quantity, in.CountedQuantity})
+		UserID, StoreID, VariantID, Kind, Note string
+		Quantity, CountedQuantity              *int64
+	}{userID, in.StoreID, in.VariantID, in.Kind, in.Note, in.Quantity, in.CountedQuantity})
 	sum := sha256.Sum256(payload)
 	return hex.EncodeToString(sum[:])
 }
@@ -287,30 +294,32 @@ func (r *postgresRepository) RecordMovement(ctx context.Context, tenantID, userI
 	created := false
 	hash := movementRequestHash(userID, in)
 	err := withCatalogTx(ctx, r.db, tenantID, func(tx pgx.Tx) error {
+		location, err := store.Resolve(ctx, tx, tenantID)
+		if err != nil {
+			return err
+		}
+		storeID := location.ID
+		m.StoreID = storeID
 		// Serialize matching retries before reading or changing the balance.
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))`, tenantID, in.IdempotencyKey); err != nil {
 			return err
 		}
-		var existingHash string
-		err := tx.QueryRow(ctx, `SELECT m.id, m.request_hash, m.variant_id, p.name, v.name, v.sku, m.kind,
+		var existingHash, existingStoreID string
+		err = tx.QueryRow(ctx, `SELECT m.id, m.request_hash, m.store_id, m.variant_id, p.name, v.name, v.sku, m.kind,
 			m.delta, m.quantity_before, m.quantity_after, m.note, m.created_at
 			FROM stock_movements m
 			JOIN product_variants v ON v.tenant_id=m.tenant_id AND v.id=m.variant_id
 			JOIN products p ON p.tenant_id=v.tenant_id AND p.id=v.product_id
 			WHERE m.tenant_id=$1 AND m.idempotency_key=$2`, tenantID, in.IdempotencyKey).
-			Scan(&m.ID, &existingHash, &m.VariantID, &m.ProductName, &m.VariantName, &m.SKU,
+			Scan(&m.ID, &existingHash, &existingStoreID, &m.VariantID, &m.ProductName, &m.VariantName, &m.SKU,
 				&m.Kind, &m.Delta, &m.QuantityBefore, &m.QuantityAfter, &m.Note, &m.CreatedAt)
 		if err == nil {
-			if existingHash != hash {
+			if existingHash != hash || existingStoreID != storeID {
 				return ErrMovementKeyReuse
 			}
 			return nil
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
-			return err
-		}
-		storeID, err := defaultStore(ctx, tx, tenantID)
-		if err != nil {
 			return err
 		}
 		var status string
@@ -368,18 +377,22 @@ func (r *postgresRepository) RecordMovement(ctx context.Context, tenantID, userI
 func (r *postgresRepository) ListMovements(ctx context.Context, tenantID string, limit, offset int) ([]Movement, error) {
 	out := make([]Movement, 0)
 	err := withCatalogTx(ctx, r.db, tenantID, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT m.id, m.order_id, m.variant_id, p.name, v.name, v.sku, m.kind, m.delta,
+		location, err := store.Resolve(ctx, tx, tenantID)
+		if err != nil {
+			return err
+		}
+		rows, err := tx.Query(ctx, `SELECT m.id, m.store_id, m.order_id, m.variant_id, p.name, v.name, v.sku, m.kind, m.delta,
 			m.quantity_before, m.quantity_after, m.note, m.created_at FROM stock_movements m
 			JOIN product_variants v ON v.tenant_id=m.tenant_id AND v.id=m.variant_id
 			JOIN products p ON p.tenant_id=v.tenant_id AND p.id=v.product_id
-			WHERE m.tenant_id=$1 ORDER BY m.created_at DESC, m.id DESC LIMIT $2 OFFSET $3`, tenantID, limit, offset)
+			WHERE m.tenant_id=$1 AND m.store_id=$2 ORDER BY m.created_at DESC, m.id DESC LIMIT $3 OFFSET $4`, tenantID, location.ID, limit, offset)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var m Movement
-			if err := rows.Scan(&m.ID, &m.OrderID, &m.VariantID, &m.ProductName, &m.VariantName, &m.SKU, &m.Kind,
+			if err := rows.Scan(&m.ID, &m.StoreID, &m.OrderID, &m.VariantID, &m.ProductName, &m.VariantName, &m.SKU, &m.Kind,
 				&m.Delta, &m.QuantityBefore, &m.QuantityAfter, &m.Note, &m.CreatedAt); err != nil {
 				return err
 			}

@@ -8,6 +8,7 @@ type CartItem struct {
 }
 
 type CheckoutInput struct {
+	StoreID           string     `json:"storeId"`
 	IdempotencyKey    string     `json:"idempotencyKey"`
 	Items             []CartItem `json:"items"`
 	CashReceivedMinor int64      `json:"cashReceivedMinor"`
@@ -25,6 +26,8 @@ type SaleItem struct {
 
 type Sale struct {
 	ID                string     `json:"id"`
+	StoreID           string     `json:"storeId"`
+	StoreName         string     `json:"storeName"`
 	OrderNumber       string     `json:"orderNumber"`
 	CashierID         string     `json:"cashierId"`
 	CashierName       string     `json:"cashierName"`
@@ -40,6 +43,8 @@ type Sale struct {
 
 type SaleSummary struct {
 	ID              string    `json:"id"`
+	StoreID         string    `json:"storeId"`
+	StoreName       string    `json:"storeName"`
 	OrderNumber     string    `json:"orderNumber"`
 	CashierID       string    `json:"cashierId"`
 	CashierName     string    `json:"cashierName"`

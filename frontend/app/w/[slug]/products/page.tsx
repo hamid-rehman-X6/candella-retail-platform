@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { FileUp, PackagePlus, Plus, Search, X } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
+import { useStoreSelection } from "@/lib/use-store-selection";
 import { toast } from "@/lib/toast";
 import {
   addVariant,
@@ -25,6 +32,13 @@ const button =
 
 export default function ProductsPage() {
   const { current } = useApp();
+  const {
+    stores,
+    storeId,
+    selectedStore,
+    select: selectStore,
+    error: storeError,
+  } = useStoreSelection(current.id);
   const editable = current.role === "owner" || current.role === "admin";
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
@@ -47,23 +61,28 @@ export default function ProductsPage() {
   const [initialQuantity, setInitialQuantity] = useState("0");
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const loadID = useRef(0);
 
   const refresh = useCallback(
     async (q = search) => {
+      if (!storeId) return;
+      const requestID = ++loadID.current;
       setLoading(true);
       setError("");
       try {
-        const { products: next } = await listProducts(current.id, q);
+        const { products: next } = await listProducts(current.id, storeId, q);
+        if (requestID !== loadID.current) return;
         setProducts(next);
         setOffset(0);
         setHasMore(next.length === 100);
       } catch (e) {
+        if (requestID !== loadID.current) return;
         setError(e instanceof Error ? e.message : "Could not load products.");
       } finally {
-        setLoading(false);
+        if (requestID === loadID.current) setLoading(false);
       }
     },
-    [current.id, search],
+    [current.id, storeId, search],
   );
 
   useEffect(() => {
@@ -72,6 +91,13 @@ export default function ProductsPage() {
     }, 250);
     return () => clearTimeout(timer);
   }, [refresh, search]);
+
+  function changeStore(id: string) {
+    loadID.current++;
+    setProducts([]);
+    setLoading(true);
+    selectStore(id);
+  }
 
   function openCreate() {
     setSelected(null);
@@ -132,6 +158,10 @@ export default function ProductsPage() {
       setError("Enter a whole opening quantity between 0 and 1,000,000,000.");
       return;
     }
+    if (form === "create" && openingStock > 0 && !storeId) {
+      setError("Select the store receiving the opening stock.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -140,6 +170,7 @@ export default function ProductsPage() {
           name,
           description,
           initialQuantity: openingStock,
+          storeId,
           variant: {
             name: variantName || "Standard",
             sku: "",
@@ -180,11 +211,7 @@ export default function ProductsPage() {
       const updated = await updateProduct(current.id, statusTarget.id, {
         status: nextStatus,
       });
-      setProducts((previous) =>
-        previous.map((product) =>
-          product.id === updated.product.id ? updated.product : product,
-        ),
-      );
+      await refresh();
       setStatusTarget(null);
       toast.success(
         `${updated.product.name} ${nextStatus === "archived" ? "archived" : "restored"}`,
@@ -202,16 +229,20 @@ export default function ProductsPage() {
   }
   async function loadMore() {
     const nextOffset = offset + 100;
+    const requestID = loadID.current;
     try {
       const { products: next } = await listProducts(
         current.id,
+        storeId,
         search,
         nextOffset,
       );
+      if (requestID !== loadID.current) return;
       setProducts((previous) => [...previous, ...next]);
       setOffset(nextOffset);
       setHasMore(next.length === 100);
     } catch (e) {
+      if (requestID !== loadID.current) return;
       setError(
         e instanceof Error ? e.message : "Could not load more products.",
       );
@@ -242,6 +273,24 @@ export default function ProductsPage() {
           </div>
         )}
       </div>
+      <label className="block max-w-xs text-sm font-medium">
+        Stock shown for
+        <select
+          aria-label="Product stock store"
+          className={`${field} mt-2`}
+          value={storeId}
+          onChange={(event) => changeStore(event.target.value)}
+        >
+          {!storeId && <option value="">Select a store</option>}
+          {stores
+            .filter((location) => location.accessible)
+            .map((location) => (
+              <option key={location.id} value={location.id}>
+                {location.name}
+              </option>
+            ))}
+        </select>
+      </label>
       <label className="relative block max-w-xl">
         <span className="sr-only">Search products</span>
         <Search className="absolute top-3 left-3 text-muted" size={17} />
@@ -258,6 +307,11 @@ export default function ProductsPage() {
           className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
         >
           {error}
+        </p>
+      )}
+      {storeError && (
+        <p role="alert" className="text-sm text-red-300">
+          {storeError}
         </p>
       )}
       {loading ? (
@@ -557,7 +611,7 @@ export default function ProductsPage() {
                   </label>
                   {form === "create" && (
                     <label className="block text-sm">
-                      Opening stock at Main store{" "}
+                      Opening stock at {selectedStore?.name ?? "selected store"}{" "}
                       <span className="text-muted">(optional)</span>
                       <input
                         className={`${field} mt-1`}
@@ -571,6 +625,21 @@ export default function ProductsPage() {
                       <span className="mt-1 block text-xs text-muted">
                         You can receive more stock later from Inventory.
                       </span>
+                      <select
+                        aria-label="Opening stock store"
+                        className={`${field} mt-2`}
+                        value={storeId}
+                        onChange={(event) => changeStore(event.target.value)}
+                      >
+                        {!storeId && <option value="">Select a store</option>}
+                        {stores
+                          .filter((location) => location.accessible)
+                          .map((location) => (
+                            <option key={location.id} value={location.id}>
+                              {location.name}
+                            </option>
+                          ))}
+                      </select>
                     </label>
                   )}
                 </>

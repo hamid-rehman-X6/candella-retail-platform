@@ -217,6 +217,7 @@ export default function SalesHistoryPage() {
             <tr>
               <th className="p-4 font-medium">Date</th>
               <th className="p-4 font-medium">Order</th>
+              <th className="p-4 font-medium">Store</th>
               <th className="p-4 font-medium">Cashier</th>
               <th className="p-4 text-right font-medium">Amount</th>
               <th className="p-4 text-right font-medium">Receipt</th>
@@ -233,6 +234,7 @@ export default function SalesHistoryPage() {
                   }).format(new Date(sale.createdAt))}
                 </td>
                 <td className="p-4 font-mono">{sale.orderNumber}</td>
+                <td className="p-4">{sale.storeName}</td>
                 <td className="p-4">{sale.cashierName || sale.cashierId}</td>
                 <td className="p-4 text-right font-semibold">
                   {formatMoney(sale.grandTotalMinor, sale.currencyCode)}

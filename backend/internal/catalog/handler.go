@@ -12,6 +12,7 @@ import (
 
 	"candella-ecosystem/backend/internal/audit"
 	"candella-ecosystem/backend/internal/auth"
+	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/internal/tenant"
 	"candella-ecosystem/backend/pkg/response"
 )
@@ -26,6 +27,11 @@ func NewHandler(svc *Service, auditor *audit.Recorder, log *slog.Logger) *Handle
 	return &Handler{svc: svc, auditor: auditor, log: log}
 }
 func (h *Handler) writeErr(w http.ResponseWriter, err error) {
+	var storeErr *store.Error
+	if errors.As(err, &storeErr) {
+		response.Error(w, storeErr.Status, storeErr.Code, storeErr.Message)
+		return
+	}
 	var e *Error
 	if errors.As(err, &e) {
 		response.Error(w, e.Status, e.Code, e.Message)
@@ -56,6 +62,13 @@ func scope(r *http.Request) (*tenant.Context, *auth.User) {
 	u, _ := auth.UserFromContext(r.Context())
 	return t, u
 }
+func selectStore(r *http.Request, storeID string) (*http.Request, error) {
+	if storeID == "" {
+		return nil, store.ErrSelection
+	}
+	t, u := scope(r)
+	return r.WithContext(store.WithSelection(r.Context(), storeID, u.ID, t.Role)), nil
+}
 func canWrite(t *tenant.Context) bool { return t.Role == "owner" || t.Role == "admin" }
 func rejectReadOnly(w http.ResponseWriter, t *tenant.Context) bool {
 	if canWrite(t) {
@@ -66,6 +79,14 @@ func rejectReadOnly(w http.ResponseWriter, t *tenant.Context) bool {
 }
 func (h *Handler) ListProducts(w http.ResponseWriter, r *http.Request) {
 	t, _ := scope(r)
+	if storeID := r.URL.Query().Get("storeId"); storeID != "" {
+		var err error
+		r, err = selectStore(r, storeID)
+		if err != nil {
+			h.writeErr(w, err)
+			return
+		}
+	}
 	limit, offset := page(r)
 	list, err := h.svc.ListProducts(r.Context(), t.TenantID, r.URL.Query().Get("search"), limit, offset)
 	if err != nil {
@@ -76,6 +97,12 @@ func (h *Handler) ListProducts(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 	t, _ := scope(r)
+	var err error
+	r, err = selectStore(r, r.URL.Query().Get("storeId"))
+	if err != nil {
+		h.writeErr(w, err)
+		return
+	}
 	summary, err := h.svc.Summary(r.Context(), t.TenantID)
 	if err != nil {
 		h.writeErr(w, err)
@@ -92,6 +119,14 @@ func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	if err := decode(r, &in); err != nil {
 		h.writeErr(w, err)
 		return
+	}
+	if in.InitialQuantity != nil && *in.InitialQuantity > 0 {
+		var err error
+		r, err = selectStore(r, in.StoreID)
+		if err != nil {
+			h.writeErr(w, err)
+			return
+		}
 	}
 	p, err := h.svc.CreateProduct(r.Context(), t.TenantID, u.ID, in)
 	if err != nil {
@@ -157,6 +192,12 @@ func (h *Handler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) ListStock(w http.ResponseWriter, r *http.Request) {
 	t, _ := scope(r)
+	var err error
+	r, err = selectStore(r, r.URL.Query().Get("storeId"))
+	if err != nil {
+		h.writeErr(w, err)
+		return
+	}
 	limit, offset := page(r)
 	items, storeID, err := h.svc.ListStock(r.Context(), t.TenantID, r.URL.Query().Get("search"), limit, offset)
 	if err != nil {
@@ -172,6 +213,11 @@ func (h *Handler) RecordMovement(w http.ResponseWriter, r *http.Request) {
 	}
 	var in MovementInput
 	if err := decode(r, &in); err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	r, err := selectStore(r, in.StoreID)
+	if err != nil {
 		h.writeErr(w, err)
 		return
 	}
@@ -192,6 +238,12 @@ func (h *Handler) RecordMovement(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) ListMovements(w http.ResponseWriter, r *http.Request) {
 	t, _ := scope(r)
+	var err error
+	r, err = selectStore(r, r.URL.Query().Get("storeId"))
+	if err != nil {
+		h.writeErr(w, err)
+		return
+	}
 	limit, offset := page(r)
 	list, err := h.svc.ListMovements(r.Context(), t.TenantID, limit, offset)
 	if err != nil {
