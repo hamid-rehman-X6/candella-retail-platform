@@ -7,13 +7,8 @@ import { Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
 import { useStoreSelection } from "@/lib/use-store-selection";
 import { Select } from "@/components/ui/select";
-import {
-  formatMoney,
-  listStock,
-  minorDigits,
-  parseMoney,
-  type StockItem,
-} from "@/lib/catalog-api";
+import { listStock, type StockItem } from "@/lib/catalog-api";
+import { formatMoney, minorDigits, parseMoney } from "@/lib/money";
 import { checkout } from "@/lib/sales-api";
 
 type CartLine = { item: StockItem; quantity: number };

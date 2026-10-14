@@ -164,35 +164,3 @@ export const recordMovement = (
         note: string;
       },
 ) => apiPost<{ movement: Movement }>("/inventory/movements", input, tenantId);
-
-export function formatMoney(minor: number, currency: string) {
-  const formatter = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency,
-  });
-  const digits = formatter.resolvedOptions().maximumFractionDigits ?? 2;
-  return formatter.format(minor / 10 ** digits);
-}
-
-export function minorDigits(currency: string) {
-  return (
-    new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-    }).resolvedOptions().maximumFractionDigits ?? 2
-  );
-}
-
-export function parseMoney(input: string, currency: string): number | null {
-  const digits = minorDigits(currency);
-  const pattern = new RegExp(
-    digits === 0 ? "^\\d+$" : `^\\d+(?:\\.\\d{1,${digits}})?$`,
-  );
-  if (!pattern.test(input.trim())) return null;
-  const [whole, decimal = ""] = input.trim().split(".");
-  const value =
-    Number(whole) * 10 ** digits + Number(decimal.padEnd(digits, "0"));
-  return Number.isSafeInteger(value) && value <= 1_000_000_000_000
-    ? value
-    : null;
-}

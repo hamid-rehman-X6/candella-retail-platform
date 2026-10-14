@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Printer } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
-import { formatMoney } from "@/lib/catalog-api";
+import { formatMoney } from "@/lib/money";
 import { getSale, type Sale } from "@/lib/sales-api";
 
 export default function ReceiptPage() {

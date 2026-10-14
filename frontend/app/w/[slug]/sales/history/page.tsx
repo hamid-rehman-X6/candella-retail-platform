@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Search } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
-import { formatMoney, parseMoney } from "@/lib/catalog-api";
+import { formatMoney, parseMoney } from "@/lib/money";
 import {
   listSales,
   type SaleSummary,

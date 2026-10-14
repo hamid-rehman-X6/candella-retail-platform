@@ -14,9 +14,9 @@ const bars = [42, 58, 47, 72, 63, 88, 76];
 const days = ["M", "T", "W", "T", "F", "S", "S"];
 
 const feed = [
-  { store: "Downtown Pharmacy", amount: "$248.50", tag: "POS" },
-  { store: "Mall Kiosk · Beauty", amount: "$92.00", tag: "Online" },
-  { store: "Warehouse Outlet", amount: "$1,204.00", tag: "Wholesale" },
+  { store: "Downtown Pharmacy", amount: "Rs 6,950", tag: "POS" },
+  { store: "Mall Kiosk · Beauty", amount: "Rs 2,480", tag: "Online" },
+  { store: "Warehouse Outlet", amount: "Rs 33,700", tag: "Wholesale" },
 ];
 
 /** Stylised product screenshot used in the hero. Pure CSS/SVG, no images. */
@@ -69,7 +69,7 @@ export function DashboardMockup() {
           {/* KPI tiles */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: "Revenue", value: "$48.2k", delta: "+12.4%" },
+              { label: "Revenue", value: "Rs 13.5M", delta: "+12.4%" },
               { label: "Orders", value: "1,284", delta: "+6.1%" },
               { label: "Stock health", value: "98%", delta: "+2.0%" },
             ].map((kpi) => (
