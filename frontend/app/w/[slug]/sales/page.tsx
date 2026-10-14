@@ -34,6 +34,7 @@ export default function SalesPage() {
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
   const requestKey = useRef<string | null>(null);
+  const scanGeneration = useRef(0);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<StockItem[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -43,9 +44,12 @@ export default function SalesPage() {
   const [error, setError] = useState("");
 
   function changeStore(id: string) {
+    if (busy) return;
+    scanGeneration.current++;
     setCart([]);
     setResults([]);
     setCash("");
+    setSearch("");
     requestKey.current = null;
     setLoading(true);
     selectStore(id);
@@ -54,23 +58,25 @@ export default function SalesPage() {
   useEffect(() => {
     if (!storeId) return;
     let cancelled = false;
+    const generation = scanGeneration.current;
     const timer = setTimeout(
       async () => {
         try {
           const data = await listStock(current.id, storeId, search);
-          if (!cancelled) {
+          if (!cancelled && generation === scanGeneration.current) {
             setResults(data.items);
             setError("");
           }
         } catch (e) {
-          if (!cancelled) {
+          if (!cancelled && generation === scanGeneration.current) {
             setResults([]);
             setError(
               e instanceof Error ? e.message : "Could not load products.",
             );
           }
         } finally {
-          if (!cancelled) setLoading(false);
+          if (!cancelled && generation === scanGeneration.current)
+            setLoading(false);
         }
       },
       search ? 200 : 0,
@@ -117,9 +123,11 @@ export default function SalesPage() {
     if (!storeId) return;
     const query = search.trim();
     if (!query) return;
+    const generation = scanGeneration.current;
     try {
       // Fetch on Enter as well, so a fast barcode scanner does not wait for debounce.
       const data = await listStock(current.id, storeId, query);
+      if (generation !== scanGeneration.current) return;
       setResults(data.items);
       const exact = data.items.find(
         (item) =>
@@ -130,6 +138,7 @@ export default function SalesPage() {
       else if (data.items.length === 0)
         setError("No matching product. Check the SKU or barcode.");
     } catch (e) {
+      if (generation !== scanGeneration.current) return;
       setError(e instanceof Error ? e.message : "Could not search products.");
     }
   }

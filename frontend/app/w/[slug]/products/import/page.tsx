@@ -161,6 +161,7 @@ export default function ImportProductsPage() {
           <select
             aria-label="CSV stock store"
             value={storeId}
+            disabled={busy}
             onChange={(event) => {
               selectStore(event.target.value);
               reset();

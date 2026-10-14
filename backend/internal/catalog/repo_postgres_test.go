@@ -101,10 +101,6 @@ func TestCreateProductWithOpeningStockPostgres(t *testing.T) {
 	if err != nil || variant.SKU == "" || variant.SKU == product.Variants[0].SKU {
 		t.Fatalf("new variant=%+v err=%v", variant, err)
 	}
-	otherProducts, err := svc.ListProducts(ctx, tenantB, "", 50, 0)
-	if err != nil || len(otherProducts) != 0 {
-		t.Fatalf("cross-tenant products=%+v err=%v", otherProducts, err)
-	}
 	// A tenant without a default store cannot receive opening stock. The product
 	// and variant inserts must roll back with the failed stock operation.
 	if _, err := svc.CreateProduct(ctx, tenantB, userID, CreateProductInput{
@@ -118,6 +114,10 @@ func TestCreateProductWithOpeningStockPostgres(t *testing.T) {
 	// The missing-store rollback is verified; add tenant B's store so the
 	// cross-tenant request reaches the variant isolation check.
 	mustExec(`INSERT INTO stores (id,tenant_id,name,is_default) VALUES ($1,$2,'Main',true)`, id.New(id.Store), tenantB)
+	otherProducts, err := svc.ListProducts(ctx, tenantB, "", 50, 0)
+	if err != nil || len(otherProducts) != 0 {
+		t.Fatalf("cross-tenant products=%+v err=%v", otherProducts, err)
+	}
 
 	variantID := product.Variants[0].ID
 	receiveKey := id.New(id.StockMovement)
