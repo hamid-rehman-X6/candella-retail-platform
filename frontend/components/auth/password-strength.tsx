@@ -4,7 +4,7 @@ import { getPasswordStrength } from "@/lib/validation";
 import { cn } from "@/lib/cn";
 
 const barColor = [
-  "bg-white/10",
+  "bg-foreground/10",
   "bg-red-500",
   "bg-orange-500",
   "bg-yellow-500",
@@ -23,7 +23,7 @@ export function PasswordStrengthMeter({ password }: { password: string }) {
             key={i}
             className={cn(
               "h-1.5 flex-1 rounded-full transition-colors duration-300",
-              i <= score ? barColor[score] : "bg-white/10",
+              i <= score ? barColor[score] : "bg-foreground/10",
             )}
           />
         ))}

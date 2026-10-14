@@ -26,7 +26,7 @@ function ProductCard({ product }: { product: ProductModule }) {
     <div
       ref={cardRef}
       onMouseMove={onMove}
-      className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-white/[0.02] p-7 transition-all duration-500 hover:border-line-strong hover:bg-white/[0.04]"
+      className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-foreground/[0.02] p-7 transition-all duration-500 hover:border-line-strong hover:bg-foreground/[0.04]"
     >
       {/* spotlight follows cursor */}
       <div
@@ -45,14 +45,14 @@ function ProductCard({ product }: { product: ProductModule }) {
       />
 
       <div className="relative flex items-center justify-between">
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent ring-1 ring-accent/20 transition-transform duration-500 group-hover:scale-110">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent-ink ring-1 ring-accent/20 transition-transform duration-500 group-hover:scale-110">
           <Icon className="h-6 w-6" />
         </span>
-        <ArrowUpRight className="h-5 w-5 text-subtle transition-all duration-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-accent" />
+        <ArrowUpRight className="h-5 w-5 text-subtle transition-all duration-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-accent-ink" />
       </div>
 
       <div className="relative mt-6">
-        <p className="text-xs font-medium tracking-widest text-accent/80 uppercase">
+        <p className="text-xs font-medium tracking-widest text-accent-ink/80 uppercase">
           {product.tagline}
         </p>
         <h3 className="mt-2 text-xl font-semibold tracking-tight">
@@ -69,7 +69,7 @@ function ProductCard({ product }: { product: ProductModule }) {
             key={f}
             className="flex items-center gap-2.5 text-sm text-foreground/85"
           >
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent-ink">
               <Check className="h-3 w-3" />
             </span>
             {f}

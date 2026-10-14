@@ -25,8 +25,8 @@ export function PlatformNav() {
             className={cn(
               "rounded-lg px-3 py-1.5 text-sm transition-colors",
               active
-                ? "bg-slate-800 text-white"
-                : "text-slate-400 hover:bg-slate-900 hover:text-slate-200",
+                ? "bg-surface-2 text-foreground"
+                : "text-muted hover:bg-surface-2 hover:text-foreground",
             )}
           >
             {link.label}

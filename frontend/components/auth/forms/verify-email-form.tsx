@@ -93,9 +93,9 @@ export function VerifyEmailForm() {
           autoFocus
           disabled={verifying}
         />
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-danger-ink">{error}</p>}
         {resent && !error && (
-          <p className="text-sm text-emerald-400">
+          <p className="text-sm text-success-ink">
             A fresh code is on its way.
           </p>
         )}
@@ -127,7 +127,7 @@ export function VerifyEmailForm() {
             <button
               type="button"
               onClick={resend}
-              className="font-medium text-accent transition-colors hover:text-accent-bright"
+              className="font-medium text-accent-ink transition-colors hover:text-accent-hover"
             >
               Resend code
             </button>
@@ -139,7 +139,7 @@ export function VerifyEmailForm() {
         Wrong address?{" "}
         <Link
           href="/signup"
-          className="font-medium text-accent transition-colors hover:text-accent-bright"
+          className="font-medium text-accent-ink transition-colors hover:text-accent-hover"
         >
           Change email
         </Link>

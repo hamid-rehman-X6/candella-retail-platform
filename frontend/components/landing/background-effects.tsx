@@ -20,7 +20,7 @@ export function BackgroundEffects() {
       <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-accent/40 to-transparent" />
 
       {/* vignette */}
-      <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_-10%,transparent_40%,rgba(0,0,0,0.55))]" />
+      <div className="page-vignette absolute inset-0" />
     </div>
   );
 }

@@ -73,7 +73,7 @@ export function Testimonials() {
                 className="min-w-0 shrink-0 grow-0 basis-full pr-4 sm:basis-1/2 lg:basis-1/3"
               >
                 <figure className="card-surface flex h-full flex-col rounded-3xl p-7">
-                  <Quote className="h-8 w-8 text-accent/60" />
+                  <Quote className="h-8 w-8 text-accent-ink/60" />
                   <blockquote className="mt-5 flex-1 text-base leading-relaxed text-foreground/90">
                     “{t.quote}”
                   </blockquote>
@@ -98,7 +98,7 @@ export function Testimonials() {
                 "h-2 rounded-full transition-all duration-300",
                 selected === i
                   ? "w-8 bg-accent"
-                  : "w-2 bg-white/15 hover:bg-white/30",
+                  : "w-2 bg-foreground/15 hover:bg-foreground/30",
               )}
             />
           ))}

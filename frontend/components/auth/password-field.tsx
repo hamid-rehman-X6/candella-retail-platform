@@ -42,7 +42,7 @@ export function PasswordField({
           value={value}
           aria-invalid={!!error}
           className={cn(
-            "h-12 w-full rounded-xl border bg-white/5 px-3.5 pr-11 pl-11 text-sm text-foreground transition-colors outline-none placeholder:text-subtle focus:ring-2 focus:ring-accent/20",
+            "h-12 w-full rounded-xl border bg-foreground/5 px-3.5 pr-11 pl-11 text-sm text-foreground transition-colors outline-none placeholder:text-subtle focus:ring-2 focus:ring-accent/20",
             error
               ? "border-red-500/60 focus:border-red-500/60"
               : "border-line focus:border-accent/50",
@@ -62,7 +62,7 @@ export function PasswordField({
           )}
         </button>
       </div>
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-danger-ink">{error}</p>}
       {showStrength && <PasswordStrengthMeter password={value} />}
     </div>
   );

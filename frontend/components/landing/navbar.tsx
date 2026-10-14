@@ -9,6 +9,7 @@ import {
 } from "motion/react";
 import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Container } from "@/components/ui/container";
 import {
   NavAuth,
@@ -66,13 +67,17 @@ export function Navbar() {
             ))}
           </ul>
 
-          <NavAuth />
+          <div className="hidden items-center gap-2 lg:flex">
+            <ThemeToggle />
+            <NavAuth />
+          </div>
 
           <div className="flex items-center gap-2 lg:hidden">
+            <ThemeToggle />
             <NavAuthAvatar />
             <button
               onClick={() => setOpen((v) => !v)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-white/5"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-foreground/5"
               aria-label={open ? "Close menu" : "Open menu"}
             >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -112,7 +117,7 @@ export function Navbar() {
                     <a
                       href={link.href}
                       onClick={() => setOpen(false)}
-                      className="block rounded-2xl px-4 py-3.5 text-lg font-medium text-foreground transition-colors hover:bg-white/5"
+                      className="block rounded-2xl px-4 py-3.5 text-lg font-medium text-foreground transition-colors hover:bg-foreground/5"
                     >
                       {link.label}
                     </a>

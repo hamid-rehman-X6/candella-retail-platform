@@ -1,5 +1,6 @@
 import { BrandPanel } from "@/components/auth/brand-panel";
 import { Logo } from "@/components/ui/logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function AuthLayout({
   children,
@@ -11,6 +12,9 @@ export default function AuthLayout({
       <BrandPanel />
 
       <div className="relative flex min-h-screen flex-col">
+        <div className="absolute top-6 right-6 z-20">
+          <ThemeToggle />
+        </div>
         {/* soft top glow on the form side for cohesion with the brand panel */}
         <div
           aria-hidden

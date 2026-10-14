@@ -139,13 +139,13 @@ export default function StoresPage() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-danger-ink"
         >
           {error}
         </p>
       )}
       {message && (
-        <p role="status" className="text-sm text-emerald-300">
+        <p role="status" className="text-sm text-success-ink">
           {message}
         </p>
       )}
@@ -181,7 +181,7 @@ export default function StoresPage() {
               <p className="font-medium">
                 {store.name}{" "}
                 {store.isDefault && (
-                  <span className="ml-2 rounded-full bg-accent/15 px-2 py-1 text-xs text-accent">
+                  <span className="ml-2 rounded-full bg-accent/15 px-2 py-1 text-xs text-accent-ink">
                     Default
                   </span>
                 )}
@@ -240,7 +240,7 @@ export default function StoresPage() {
             <button
               type="button"
               onClick={() => setSelected(null)}
-              className="text-sm text-accent"
+              className="text-sm text-accent-ink"
             >
               Close
             </button>

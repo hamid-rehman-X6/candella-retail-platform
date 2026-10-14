@@ -28,9 +28,9 @@ export function Features() {
                 key={feature.title}
                 className={cn(feature.span === "wide" && "sm:col-span-2")}
               >
-                <div className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-white/[0.02] p-6 transition-all duration-500 hover:border-line-strong hover:bg-white/[0.04]">
+                <div className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-foreground/[0.02] p-6 transition-all duration-500 hover:border-line-strong hover:bg-foreground/[0.04]">
                   <div className="pointer-events-none absolute -top-12 -right-12 h-32 w-32 rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.14),transparent_70%)] opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-100" />
-                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/10 text-accent ring-1 ring-accent/20">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/10 text-accent-ink ring-1 ring-accent/20">
                     <Icon className="h-5 w-5" />
                   </span>
                   <h3 className="mt-5 text-lg font-semibold tracking-tight">

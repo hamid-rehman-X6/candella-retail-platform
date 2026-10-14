@@ -63,12 +63,12 @@ export function InvitationAcceptance({ token }: { token: string }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
       <section className="w-full max-w-lg rounded-2xl border border-line bg-surface p-8">
-        <p className="text-xs font-semibold tracking-widest text-accent uppercase">
+        <p className="text-xs font-semibold tracking-widest text-accent-ink uppercase">
           Candella
         </p>
         <h1 className="mt-3 text-2xl font-semibold">Join a workspace</h1>
         {!token ? (
-          <p role="alert" className="mt-4 text-sm text-red-300">
+          <p role="alert" className="mt-4 text-sm text-danger-ink">
             This invitation link is missing its token. Ask the owner to resend
             it.
           </p>
@@ -104,12 +104,12 @@ export function InvitationAcceptance({ token }: { token: string }) {
               address.
             </p>
             {!user.emailVerified && (
-              <p role="alert" className="text-red-300">
+              <p role="alert" className="text-danger-ink">
                 Verify your email before accepting.
               </p>
             )}
             {error && (
-              <p role="alert" className="text-red-300">
+              <p role="alert" className="text-danger-ink">
                 {error}
               </p>
             )}

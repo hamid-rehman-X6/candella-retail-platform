@@ -30,11 +30,11 @@ export function Pricing() {
                   "relative flex h-full flex-col overflow-hidden rounded-3xl p-8 transition-all duration-500",
                   tier.featured
                     ? "card-surface ring-gradient glow-accent scale-[1.02]"
-                    : "border border-line bg-white/[0.02] hover:border-line-strong",
+                    : "border border-line bg-foreground/[0.02] hover:border-line-strong",
                 )}
               >
                 {tier.featured && (
-                  <span className="absolute top-6 right-6 rounded-full bg-accent/15 px-3 py-1 text-xs font-medium text-accent">
+                  <span className="absolute top-6 right-6 rounded-full bg-accent/15 px-3 py-1 text-xs font-medium text-accent-ink">
                     Most popular
                   </span>
                 )}
@@ -65,7 +65,7 @@ export function Pricing() {
                 <ul className="mt-8 space-y-3 border-t border-line pt-7">
                   {tier.features.map((f) => (
                     <li key={f} className="flex items-start gap-3 text-sm">
-                      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+                      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent-ink">
                         <Check className="h-3 w-3" />
                       </span>
                       <span className="text-foreground/85">{f}</span>

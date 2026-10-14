@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/select";
 const statuses = ["active", "trialing", "suspended", "cancelled"];
 
 const field =
-  "rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none transition-colors focus:border-rose-500/60";
+  "rounded-lg border border-line-strong bg-surface-2 px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-rose-500/60";
 
 /**
  * Filters submit as a plain GET form, so the result is a real URL: staff can
@@ -35,13 +35,13 @@ export function TenantFilters({
       className="flex flex-wrap items-center gap-2"
     >
       <div className="relative min-w-56 flex-1">
-        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-500" />
+        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-subtle" />
         <input
           type="search"
           name="search"
           defaultValue={search}
           placeholder="Search by name or slug"
-          className={`${field} w-full pl-9 placeholder:text-slate-500`}
+          className={`${field} w-full pl-9 placeholder:text-subtle`}
         />
       </div>
 
@@ -76,7 +76,7 @@ export function TenantFilters({
 
       <button
         type="submit"
-        className="rounded-lg bg-rose-500/90 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-500"
+        className="rounded-lg bg-platform-button px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-platform-button-hover"
       >
         Apply
       </button>
@@ -85,7 +85,7 @@ export function TenantFilters({
         <button
           type="button"
           onClick={() => router.push("/platform/tenants")}
-          className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-400 transition-colors hover:text-slate-200"
+          className="rounded-lg border border-line-strong px-3 py-2 text-sm text-muted transition-colors hover:text-foreground"
         >
           Clear
         </button>

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerUser, getServerWorkspaces } from "@/lib/server-auth";
 import { BackgroundEffects } from "@/components/landing/background-effects";
 import { OnboardingForm } from "@/components/app/onboarding-form";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export const metadata: Metadata = { title: "Create your workspace" };
 
@@ -41,6 +42,9 @@ export default async function OnboardingPage({
   return (
     <>
       <BackgroundEffects />
+      <div className="fixed top-5 right-5 z-20">
+        <ThemeToggle />
+      </div>
       <main className="relative flex min-h-screen items-center justify-center px-6 py-16">
         <OnboardingForm
           userName={user.fullName}

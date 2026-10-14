@@ -44,10 +44,10 @@ export default async function PlatformTenantsPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-white">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           Workspaces
         </h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-muted">
           {total} {total === 1 ? "workspace" : "workspaces"} on the platform.
         </p>
       </div>
@@ -60,13 +60,13 @@ export default async function PlatformTenantsPage({
       />
 
       {tenants.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-slate-800 px-4 py-12 text-center text-sm text-slate-500">
+        <p className="rounded-xl border border-dashed border-line px-4 py-12 text-center text-sm text-subtle">
           No workspaces match these filters.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-800">
+        <div className="overflow-x-auto rounded-xl border border-line">
           <table className="w-full min-w-[52rem] text-sm">
-            <thead className="bg-slate-900/70 text-left text-xs tracking-wide text-slate-400 uppercase">
+            <thead className="bg-surface-2/70 text-left text-xs tracking-wide text-muted uppercase">
               <tr>
                 <th className="px-4 py-3 font-medium">Workspace</th>
                 <th className="px-4 py-3 font-medium">Industry</th>
@@ -76,36 +76,36 @@ export default async function PlatformTenantsPage({
                 <th className="px-4 py-3 font-medium">Created</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-line">
               {tenants.map((t) => (
                 <tr
                   key={t.id}
-                  className="bg-slate-900/40 transition-colors hover:bg-slate-900"
+                  className="bg-surface/40 transition-colors hover:bg-surface-2"
                 >
                   <td className="px-4 py-3">
                     <Link
                       href={`/platform/tenants/${t.id}`}
-                      className="font-medium text-white hover:text-rose-300"
+                      className="font-medium text-foreground hover:text-platform-accent"
                     >
                       {t.name}
                     </Link>
-                    <span className="block font-mono text-xs text-slate-500">
+                    <span className="block font-mono text-xs text-subtle">
                       {t.slug}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-300">
+                  <td className="px-4 py-3 text-muted">
                     {industryLabel(t.industryType)}
                   </td>
                   <td className="px-4 py-3">
                     <StatusPill status={t.status} />
                   </td>
-                  <td className="px-4 py-3 text-slate-400">
+                  <td className="px-4 py-3 text-muted">
                     {t.ownerEmail ? maskEmail(t.ownerEmail) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-300">
+                  <td className="px-4 py-3 text-right text-muted">
                     {t.memberCount}
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-500">
+                  <td className="px-4 py-3 text-xs text-subtle">
                     {formatDate(t.createdAt)}
                   </td>
                 </tr>
@@ -117,14 +117,14 @@ export default async function PlatformTenantsPage({
 
       {lastPage > 1 && (
         <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-500">
+          <span className="text-subtle">
             Page {page} of {lastPage}
           </span>
           <div className="flex gap-2">
             {page > 1 && (
               <Link
                 href={pageHref(page - 1)}
-                className="rounded-lg border border-slate-700 px-3 py-1.5 text-slate-300 transition-colors hover:border-slate-600 hover:text-white"
+                className="rounded-lg border border-line-strong px-3 py-1.5 text-muted transition-colors hover:border-line-strong hover:text-foreground"
               >
                 Previous
               </Link>
@@ -132,7 +132,7 @@ export default async function PlatformTenantsPage({
             {page < lastPage && (
               <Link
                 href={pageHref(page + 1)}
-                className="rounded-lg border border-slate-700 px-3 py-1.5 text-slate-300 transition-colors hover:border-slate-600 hover:text-white"
+                className="rounded-lg border border-line-strong px-3 py-1.5 text-muted transition-colors hover:border-line-strong hover:text-foreground"
               >
                 Next
               </Link>

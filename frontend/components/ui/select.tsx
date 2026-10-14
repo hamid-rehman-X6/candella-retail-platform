@@ -36,7 +36,8 @@ export function Select({
   const [position, setPosition] = useState<React.CSSProperties>({});
   const selected = options.find((option) => option.value === value);
   const isOpen = open && !disabled && options.length > 0;
-  const highlight = tone === "rose" ? "text-rose-300" : "text-accent";
+  const highlight =
+    tone === "rose" ? "text-platform-accent" : "text-accent-ink";
 
   function firstEnabled() {
     return options.findIndex((option) => !option.disabled);
@@ -160,7 +161,7 @@ export function Select({
         className={cn(
           "flex min-h-10 items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3 py-2.5 text-left text-sm text-foreground shadow-sm transition-colors hover:border-line-strong focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
           tone === "rose" &&
-            "border-slate-700 bg-slate-900 text-slate-200 focus-visible:border-rose-500 focus-visible:ring-rose-500/30",
+            "border-line-strong bg-surface-2 text-foreground focus-visible:border-platform-accent focus-visible:ring-platform-accent/30",
           className,
         )}
       >
@@ -185,7 +186,7 @@ export function Select({
             style={position}
             className={cn(
               "z-[100] overflow-y-auto rounded-xl border border-line-strong bg-canvas-raised p-1.5 shadow-2xl shadow-black/60",
-              tone === "rose" && "border-slate-700 bg-slate-900",
+              tone === "rose" && "border-line-strong bg-canvas-raised",
             )}
           >
             {options.map((option, index) => (
@@ -202,7 +203,7 @@ export function Select({
                   "flex min-h-10 items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-foreground transition-colors",
                   !option.disabled && "cursor-pointer",
                   option.disabled && "cursor-not-allowed opacity-40",
-                  active === index && "bg-white/8",
+                  active === index && "bg-foreground/8",
                   value === option.value && highlight,
                 )}
               >

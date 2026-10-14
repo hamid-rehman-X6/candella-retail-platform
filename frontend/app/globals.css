@@ -1,31 +1,32 @@
 @import "tailwindcss";
 
-/* ------------------------------------------------------------------ *
- * Candella Design Tokens — dark, cinematic, warm amber→gold glow.
- * Single source of truth for color, type, motion. Every component
- * references these tokens rather than hardcoding values.
- * ------------------------------------------------------------------ */
+/* Light is the default. The dark palette overrides these same semantic tokens. */
 @theme {
-  /* Surfaces — near-black with a faint warmth, layered for depth */
-  --color-canvas: #08080a;
-  --color-canvas-raised: #0e0e12;
-  --color-surface: #131318;
-  --color-surface-2: #1a1a21;
+  --color-canvas: #f8f7f4;
+  --color-canvas-raised: #fffefa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0eee9;
 
-  /* Hairlines / borders */
-  --color-line: #ffffff14; /* ~8% white */
-  --color-line-strong: #ffffff26; /* ~15% white */
+  --color-line: #e4dfd6;
+  --color-line-strong: #c9c1b5;
 
-  /* Text */
-  --color-foreground: #f6f5f3;
-  --color-muted: #a8a29e; /* warm stone-400 */
-  --color-subtle: #78716c; /* warm stone-500 */
+  --color-foreground: #25211e;
+  --color-muted: #5d5750;
+  --color-subtle: #736b62;
 
-  /* Brand accent — the "Candella" light: amber → gold */
   --color-accent: #f59e0b;
   --color-accent-bright: #fbbf24;
   --color-accent-soft: #fcd34d;
   --color-accent-deep: #b45309;
+  --color-accent-ink: #8a4900;
+  --color-accent-hover: #683700;
+  --color-platform-accent: #a41646;
+  --color-platform-button: #be123c;
+  --color-platform-button-hover: #9f1239;
+  --color-danger-ink: #b42318;
+  --color-success-ink: #116a4a;
+  --color-info-ink: #075985;
+  --color-warning-ink: #8a4b00;
 
   /* Radii */
   --radius-xl: 1.25rem;
@@ -118,7 +119,47 @@
  * Base
  * ------------------------------------------------------------------ */
 :root {
+  color-scheme: light;
+  --card-glow: #00000007;
+  --grid-line: #0000000a;
+  --dot-color: #00000016;
+  --glass-opacity: 90%;
+  --gradient-start: #8a4900;
+  --gradient-middle: #a96000;
+  --gradient-end: #6d3b00;
+  --brand-vignette: rgba(172, 125, 58, 0.08);
+  --page-vignette: rgba(77, 58, 36, 0.035);
+}
+
+:root[data-theme="dark"] {
   color-scheme: dark;
+  --color-canvas: #08080a;
+  --color-canvas-raised: #0e0e12;
+  --color-surface: #131318;
+  --color-surface-2: #1a1a21;
+  --color-line: #ffffff14;
+  --color-line-strong: #ffffff26;
+  --color-foreground: #f6f5f3;
+  --color-muted: #a8a29e;
+  --color-subtle: #928b85;
+  --color-accent-ink: #fbbf24;
+  --color-accent-hover: #fcd34d;
+  --color-platform-accent: #fda4af;
+  --color-platform-button: #e11d48;
+  --color-platform-button-hover: #f43f5e;
+  --color-danger-ink: #fca5a5;
+  --color-success-ink: #6ee7b7;
+  --color-info-ink: #7dd3fc;
+  --color-warning-ink: #fcd34d;
+  --card-glow: #ffffff0a;
+  --grid-line: #ffffff08;
+  --dot-color: #ffffff12;
+  --glass-opacity: 70%;
+  --gradient-start: #fcd34d;
+  --gradient-middle: #fbbf24;
+  --gradient-end: #b45309;
+  --brand-vignette: rgba(0, 0, 0, 0.5);
+  --page-vignette: rgba(0, 0, 0, 0.55);
 }
 
 html {
@@ -163,7 +204,7 @@ a[aria-disabled="true"] {
 
 ::selection {
   background: color-mix(in oklab, var(--color-accent) 35%, transparent);
-  color: #fff;
+  color: var(--color-foreground);
 }
 
 /* Custom scrollbar (WebKit) */
@@ -191,19 +232,39 @@ a[aria-disabled="true"] {
 .text-gradient {
   background: linear-gradient(
     100deg,
-    var(--color-accent-soft) 0%,
-    var(--color-accent-bright) 40%,
-    var(--color-accent) 70%,
-    var(--color-accent-deep) 100%
+    var(--gradient-start) 0%,
+    var(--gradient-middle) 40%,
+    var(--gradient-middle) 70%,
+    var(--gradient-end) 100%
   );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
+.brand-vignette {
+  background: radial-gradient(
+    120% 80% at 50% -10%,
+    transparent 45%,
+    var(--brand-vignette)
+  );
+}
+
+.page-vignette {
+  background: radial-gradient(
+    120% 80% at 50% -10%,
+    transparent 40%,
+    var(--page-vignette)
+  );
+}
+
 /* Frosted glass surface */
 .glass {
-  background: color-mix(in oklab, var(--color-surface) 70%, transparent);
+  background: color-mix(
+    in oklab,
+    var(--color-surface) var(--glass-opacity),
+    transparent
+  );
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   border: 1px solid var(--color-line);
@@ -212,7 +273,7 @@ a[aria-disabled="true"] {
 /* Subtle top-lit card gradient + hairline */
 .card-surface {
   background:
-    radial-gradient(120% 120% at 50% 0%, #ffffff0a 0%, transparent 55%),
+    radial-gradient(120% 120% at 50% 0%, var(--card-glow) 0%, transparent 55%),
     var(--color-surface);
   border: 1px solid var(--color-line);
 }
@@ -253,12 +314,12 @@ a[aria-disabled="true"] {
 /* Dotted / grid backdrops */
 .bg-grid {
   background-image:
-    linear-gradient(to right, #ffffff08 1px, transparent 1px),
-    linear-gradient(to bottom, #ffffff08 1px, transparent 1px);
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
   background-size: 64px 64px;
 }
 .bg-dots {
-  background-image: radial-gradient(#ffffff12 1px, transparent 1px);
+  background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
   background-size: 26px 26px;
 }
 

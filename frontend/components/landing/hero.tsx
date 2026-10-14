@@ -57,9 +57,9 @@ export function Hero() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="group mb-8 inline-flex items-center gap-2 rounded-full border border-line bg-white/5 py-1.5 pr-4 pl-2 text-sm text-muted backdrop-blur-sm transition-colors hover:border-line-strong"
+            className="group mb-8 inline-flex items-center gap-2 rounded-full border border-line bg-foreground/5 py-1.5 pr-4 pl-2 text-sm text-muted backdrop-blur-sm transition-colors hover:border-line-strong"
           >
-            <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-medium text-accent">
+            <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-medium text-accent-ink">
               New
             </span>
             The complete retail operating system
@@ -129,7 +129,7 @@ export function Hero() {
               const Icon = f.icon;
               return (
                 <li key={f.label} className="inline-flex items-center gap-2">
-                  <Icon className="h-4 w-4 text-accent" />
+                  <Icon className="h-4 w-4 text-accent-ink" />
                   {f.label}
                 </li>
               );
@@ -161,7 +161,7 @@ export function Hero() {
             transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
             className="glass absolute top-24 -left-4 hidden items-center gap-2 rounded-2xl px-4 py-3 shadow-xl sm:flex"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/15 text-emerald-400">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/15 text-success-ink">
               <Wifi className="h-4 w-4" />
             </span>
             <div className="text-left">
@@ -175,7 +175,7 @@ export function Hero() {
             transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
             className="glass absolute -right-4 bottom-28 hidden items-center gap-2 rounded-2xl px-4 py-3 shadow-xl sm:flex"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-accent">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-accent-ink">
               <Zap className="h-4 w-4" />
             </span>
             <div className="text-left">

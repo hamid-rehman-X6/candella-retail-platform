@@ -83,7 +83,7 @@ export function SignupForm() {
       <Divider />
 
       {formError && (
-        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-danger-ink">
           {formError}
         </p>
       )}
@@ -123,22 +123,22 @@ export function SignupForm() {
             type="checkbox"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-line bg-white/5 accent-accent"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-line bg-foreground/5 accent-accent"
           />
           <span>
             I agree to the{" "}
-            <Link href="#" className="text-accent hover:text-accent-bright">
+            <Link href="#" className="text-accent-ink hover:text-accent-hover">
               Terms
             </Link>{" "}
             and{" "}
-            <Link href="#" className="text-accent hover:text-accent-bright">
+            <Link href="#" className="text-accent-ink hover:text-accent-hover">
               Privacy Policy
             </Link>
             .
           </span>
         </label>
         {errors.agreed && (
-          <p className="-mt-2 text-xs text-red-400">{errors.agreed}</p>
+          <p className="-mt-2 text-xs text-danger-ink">{errors.agreed}</p>
         )}
 
         <Button
@@ -165,7 +165,7 @@ export function SignupForm() {
         Already have an account?{" "}
         <Link
           href="/login"
-          className="font-medium text-accent transition-colors hover:text-accent-bright"
+          className="font-medium text-accent-ink transition-colors hover:text-accent-hover"
         >
           Sign in
         </Link>

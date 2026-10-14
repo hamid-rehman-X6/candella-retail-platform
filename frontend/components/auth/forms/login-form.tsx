@@ -97,10 +97,14 @@ export function LoginForm({ errorCode }: { errorCode?: string }) {
       {formError && (
         <div
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-danger-ink"
         >
           {formError.title && <p className="font-medium">{formError.title}</p>}
-          <p className={formError.title ? "mt-0.5 text-red-300/80" : undefined}>
+          <p
+            className={
+              formError.title ? "mt-0.5 text-danger-ink/80" : undefined
+            }
+          >
             {formError.description}
           </p>
         </div>
@@ -130,7 +134,7 @@ export function LoginForm({ errorCode }: { errorCode?: string }) {
           <div className="flex justify-end">
             <Link
               href="/forgot-password"
-              className="text-xs text-muted transition-colors hover:text-accent"
+              className="text-xs text-muted transition-colors hover:text-accent-ink"
             >
               Forgot password?
             </Link>
@@ -161,7 +165,7 @@ export function LoginForm({ errorCode }: { errorCode?: string }) {
         Don&apos;t have an account?{" "}
         <Link
           href="/signup"
-          className="font-medium text-accent transition-colors hover:text-accent-bright"
+          className="font-medium text-accent-ink transition-colors hover:text-accent-hover"
         >
           Create one
         </Link>

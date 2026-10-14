@@ -5,7 +5,7 @@ import { integrations } from "@/lib/site";
 
 function Pill({ name }: { name: string }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-line bg-white/[0.03] px-5 py-3 text-sm font-medium text-muted">
+    <span className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-line bg-foreground/[0.03] px-5 py-3 text-sm font-medium text-muted">
       <span className="h-2 w-2 rounded-full bg-accent/70" />
       {name}
     </span>

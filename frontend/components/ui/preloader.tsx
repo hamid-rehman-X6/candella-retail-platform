@@ -117,7 +117,7 @@ export function Preloader() {
             </motion.p>
 
             {/* progress bar */}
-            <div className="mt-6 h-1 w-44 overflow-hidden rounded-full bg-white/10">
+            <div className="mt-6 h-1 w-44 overflow-hidden rounded-full bg-foreground/10">
               <div
                 className="h-full rounded-full bg-linear-to-r from-accent-deep via-accent to-accent-bright transition-[width] duration-300 ease-out"
                 style={{ width: `${progress}%` }}

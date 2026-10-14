@@ -53,7 +53,7 @@ export function ForgotPasswordForm() {
         <button
           type="button"
           onClick={() => setSent(false)}
-          className="text-center text-sm text-muted transition-colors hover:text-accent"
+          className="text-center text-sm text-muted transition-colors hover:text-accent-ink"
         >
           Didn&apos;t get it? Try another email
         </button>
@@ -61,7 +61,7 @@ export function ForgotPasswordForm() {
         <p className="text-center text-sm text-muted">
           <Link
             href="/login"
-            className="inline-flex items-center gap-1.5 font-medium text-accent transition-colors hover:text-accent-bright"
+            className="inline-flex items-center gap-1.5 font-medium text-accent-ink transition-colors hover:text-accent-hover"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to sign in
@@ -113,7 +113,7 @@ export function ForgotPasswordForm() {
       <p className="text-center text-sm text-muted">
         <Link
           href="/login"
-          className="inline-flex items-center gap-1.5 font-medium text-accent transition-colors hover:text-accent-bright"
+          className="inline-flex items-center gap-1.5 font-medium text-accent-ink transition-colors hover:text-accent-hover"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to sign in
