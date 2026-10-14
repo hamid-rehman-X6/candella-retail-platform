@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { PackagePlus, Plus, Search, X } from "lucide-react";
-import { useApp } from "@/components/app/app-context";
+import { FileUp, PackagePlus, Plus, Search, X } from "lucide-react";
+import { useApp, workspacePath } from "@/components/app/app-context";
 import { toast } from "@/lib/toast";
 import {
   addVariant,
@@ -228,9 +229,17 @@ export default function ProductsPage() {
           </p>
         </div>
         {editable && (
-          <button type="button" onClick={openCreate} className={button}>
-            <PackagePlus size={17} /> Add product
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={workspacePath(current.slug, "/products/import")}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-line px-4 py-2.5 text-sm font-semibold hover:bg-surface"
+            >
+              <FileUp size={17} /> Import CSV
+            </Link>
+            <button type="button" onClick={openCreate} className={button}>
+              <PackagePlus size={17} /> Add product
+            </button>
+          </div>
         )}
       </div>
       <label className="relative block max-w-xl">

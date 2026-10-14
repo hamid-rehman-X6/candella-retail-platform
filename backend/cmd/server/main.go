@@ -83,6 +83,7 @@ func main() {
 	staffHandler := workspace.NewStaffHandler(workspace.NewStaffService(
 		workspace.NewStaffPostgresRepository(pool), mail, cfg.AppBaseURL), auditor)
 	catalogHandler := catalog.NewHandler(catalog.NewService(catalog.NewPostgresRepository(pool)), auditor, log)
+	importHandler := catalog.NewImportHandler(catalog.NewImportService(catalog.NewImportPostgresRepository(pool)), auditor, log)
 	salesHandler := sales.NewHandler(sales.NewService(sales.NewPostgresRepository(pool)), auditor, log)
 
 	// The platform console reads across every tenant. It will move to its own
@@ -115,6 +116,7 @@ func main() {
 		workspace.Routes(api, wsHandler, authHandler.RequireAuth)
 		workspace.StaffRoutes(api, staffHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		catalog.Routes(api, catalogHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
+		catalog.ImportRoutes(api, importHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		sales.Routes(api, salesHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		platform.Routes(api, platformHandler, authHandler.RequireAuth)
 	})
