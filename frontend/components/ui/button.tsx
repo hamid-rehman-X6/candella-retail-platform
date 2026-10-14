@@ -12,7 +12,7 @@ const variants: Record<Variant, string> = {
     "bg-linear-to-b from-accent-bright to-accent text-black shadow-[0_8px_30px_-8px_rgba(245,158,11,0.6)] hover:shadow-[0_12px_44px_-8px_rgba(245,158,11,0.8)] hover:-translate-y-0.5",
   secondary:
     "glass text-foreground hover:border-line-strong hover:-translate-y-0.5",
-  ghost: "text-muted hover:text-foreground hover:bg-white/5",
+  ghost: "text-muted hover:text-foreground hover:bg-foreground/5",
 };
 
 const sizes: Record<Size, string> = {

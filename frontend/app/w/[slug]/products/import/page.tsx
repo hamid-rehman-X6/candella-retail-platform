@@ -132,7 +132,7 @@ export default function ImportProductsPage() {
       <div>
         <Link
           href={workspacePath(current.slug, "/products")}
-          className="inline-flex items-center gap-2 text-sm text-accent hover:underline"
+          className="inline-flex items-center gap-2 text-sm text-accent-ink hover:underline"
         >
           <ArrowLeft className="h-4 w-4" /> Products
         </Link>
@@ -145,13 +145,13 @@ export default function ImportProductsPage() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-danger-ink"
         >
           {error}
         </p>
       )}
       {storeError && (
-        <p role="alert" className="text-sm text-red-300">
+        <p role="alert" className="text-sm text-danger-ink">
           {storeError}
         </p>
       )}
@@ -264,7 +264,7 @@ export default function ImportProductsPage() {
             <button
               type="button"
               onClick={downloadErrors}
-              className="text-sm text-accent hover:underline"
+              className="text-sm text-accent-ink hover:underline"
             >
               Download error report
             </button>
@@ -287,7 +287,7 @@ export default function ImportProductsPage() {
                     <td className="p-3 font-mono">{row.sku || "Auto"}</td>
                     <td className="p-3">
                       {row.errors.length ? (
-                        <span className="text-red-300">
+                        <span className="text-danger-ink">
                           {row.errors.join(" ")}
                         </span>
                       ) : (
@@ -346,7 +346,7 @@ export default function ImportProductsPage() {
           </div>
           <Link
             href={workspacePath(current.slug, "/products")}
-            className="mt-3 inline-block text-accent hover:underline"
+            className="mt-3 inline-block text-accent-ink hover:underline"
           >
             View products
           </Link>

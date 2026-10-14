@@ -82,10 +82,10 @@ export function OnboardingForm({
 
       {signedInWith && (
         <div className="mt-6 flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
-          <CheckCircle2 className="h-4.5 w-4.5 shrink-0 text-emerald-400" />
-          <p className="min-w-0 text-sm text-emerald-200/90">
+          <CheckCircle2 className="h-4.5 w-4.5 shrink-0 text-success-ink" />
+          <p className="min-w-0 text-sm text-success-ink/90">
             Signed in with Google as{" "}
-            <span className="font-medium break-all text-emerald-100">
+            <span className="font-medium break-all text-success-ink">
               {signedInWith}
             </span>
           </p>
@@ -93,7 +93,7 @@ export function OnboardingForm({
       )}
 
       {error && (
-        <p className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <p className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-danger-ink">
           {error}
         </p>
       )}
@@ -124,13 +124,13 @@ export function OnboardingForm({
                     "flex items-center gap-2.5 rounded-xl border px-3 py-3 text-left text-sm transition-colors",
                     selected
                       ? "border-accent/50 bg-accent/10 text-foreground"
-                      : "border-line bg-white/[0.02] text-muted hover:border-line-strong hover:text-foreground",
+                      : "border-line bg-foreground/[0.02] text-muted hover:border-line-strong hover:text-foreground",
                   )}
                 >
                   <Icon
                     className={cn(
                       "h-4.5 w-4.5 shrink-0",
-                      selected ? "text-accent" : "text-subtle",
+                      selected ? "text-accent-ink" : "text-subtle",
                     )}
                   />
                   <span className="truncate">{opt.label}</span>

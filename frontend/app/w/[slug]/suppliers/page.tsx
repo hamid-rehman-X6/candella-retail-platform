@@ -291,7 +291,7 @@ function SuppliersWorkspacePage() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-danger-ink"
         >
           {error}
         </p>
@@ -431,7 +431,7 @@ function SuppliersWorkspacePage() {
                     </p>
                   )}
                   {selected.status === "archived" && (
-                    <p className="mt-2 text-xs text-amber-400">
+                    <p className="mt-2 text-xs text-warning-ink">
                       Archived: existing links remain visible; new links are
                       disabled.
                     </p>
@@ -578,7 +578,7 @@ function SuppliersWorkspacePage() {
                               <button
                                 type="button"
                                 onClick={() => editSource(source)}
-                                className="text-xs text-accent hover:underline"
+                                className="text-xs text-accent-ink hover:underline"
                               >
                                 Edit
                               </button>

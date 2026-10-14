@@ -28,7 +28,7 @@ export function DashboardMockup() {
         <span className="h-3 w-3 rounded-full bg-red-400/70" />
         <span className="h-3 w-3 rounded-full bg-amber-400/70" />
         <span className="h-3 w-3 rounded-full bg-emerald-400/70" />
-        <div className="mx-auto flex items-center gap-2 rounded-full border border-line bg-white/5 px-3 py-1 text-[11px] text-subtle">
+        <div className="mx-auto flex items-center gap-2 rounded-full border border-line bg-foreground/5 px-3 py-1 text-[11px] text-subtle">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
           app.candella.com/dashboard
         </div>
@@ -44,7 +44,7 @@ export function DashboardMockup() {
                 key={i}
                 className={`flex h-9 w-9 items-center justify-center rounded-xl ${
                   i === 0
-                    ? "bg-accent/15 text-accent"
+                    ? "bg-accent/15 text-accent-ink"
                     : "text-subtle hover:text-muted"
                 }`}
               >
@@ -61,7 +61,7 @@ export function DashboardMockup() {
               <p className="text-xs text-subtle">Good morning, Ayesha</p>
               <h3 className="text-base font-semibold">Business overview</h3>
             </div>
-            <div className="rounded-full border border-line bg-white/5 px-3 py-1 text-[11px] text-muted">
+            <div className="rounded-full border border-line bg-foreground/5 px-3 py-1 text-[11px] text-muted">
               Last 7 days
             </div>
           </div>
@@ -81,7 +81,7 @@ export function DashboardMockup() {
                 <p className="mt-1 text-lg font-semibold tracking-tight">
                   {kpi.value}
                 </p>
-                <p className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] text-emerald-400">
+                <p className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] text-success-ink">
                   <TrendingUp className="h-3 w-3" />
                   {kpi.delta}
                 </p>
@@ -93,7 +93,7 @@ export function DashboardMockup() {
           <div className="mt-4 rounded-xl border border-line bg-canvas-raised/60 p-4">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-xs font-medium text-muted">Weekly sales</p>
-              <span className="inline-flex items-center gap-1 text-[10px] text-accent">
+              <span className="inline-flex items-center gap-1 text-[10px] text-accent-ink">
                 <ArrowUpRight className="h-3 w-3" /> trending up
               </span>
             </div>

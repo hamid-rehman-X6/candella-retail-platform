@@ -35,13 +35,13 @@ export default function ReceiptPage() {
         <div className="flex flex-wrap gap-4">
           <Link
             href={workspacePath(current.slug, "/sales/history")}
-            className="inline-flex items-center gap-2 text-sm text-accent hover:underline"
+            className="inline-flex items-center gap-2 text-sm text-accent-ink hover:underline"
           >
             <ArrowLeft className="h-4 w-4" /> Sales history
           </Link>
           <Link
             href={workspacePath(current.slug, "/sales")}
-            className="text-sm text-accent hover:underline"
+            className="text-sm text-accent-ink hover:underline"
           >
             New sale
           </Link>
@@ -59,7 +59,7 @@ export default function ReceiptPage() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-500/30 p-4 text-red-300"
+          className="rounded-xl border border-red-500/30 p-4 text-danger-ink"
         >
           {error}
         </p>
@@ -70,7 +70,7 @@ export default function ReceiptPage() {
       {sale && (
         <article className="rounded-2xl border border-line bg-surface p-6 text-foreground sm:p-9 print:rounded-none print:border-0 print:bg-white print:p-0 print:text-black">
           <header className="border-b border-line pb-6 text-center print:border-gray-300">
-            <p className="text-xs font-semibold tracking-[0.2em] text-accent uppercase print:text-black">
+            <p className="text-xs font-semibold tracking-[0.2em] text-accent-ink uppercase print:text-black">
               Cash receipt
             </p>
             <h1 className="mt-2 text-2xl font-semibold">{current.name}</h1>

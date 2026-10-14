@@ -27,9 +27,9 @@ export function Industries() {
               <RevealItem key={industry.name}>
                 <a
                   href="#cta"
-                  className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-line bg-white/[0.02] p-5 transition-all duration-500 hover:border-accent/30 hover:bg-white/[0.04]"
+                  className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-line bg-foreground/[0.02] p-5 transition-all duration-500 hover:border-accent/30 hover:bg-foreground/[0.04]"
                 >
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent ring-1 ring-accent/20 transition-transform duration-500 group-hover:scale-110">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent-ink ring-1 ring-accent/20 transition-transform duration-500 group-hover:scale-110">
                     <Icon className="h-6 w-6" />
                   </span>
                   <div className="min-w-0">
@@ -40,7 +40,7 @@ export function Industries() {
                       {industry.blurb}
                     </p>
                   </div>
-                  <ArrowRight className="ml-auto h-4 w-4 shrink-0 -translate-x-2 text-subtle opacity-0 transition-all duration-500 group-hover:translate-x-0 group-hover:text-accent group-hover:opacity-100" />
+                  <ArrowRight className="ml-auto h-4 w-4 shrink-0 -translate-x-2 text-subtle opacity-0 transition-all duration-500 group-hover:translate-x-0 group-hover:text-accent-ink group-hover:opacity-100" />
                 </a>
               </RevealItem>
             );

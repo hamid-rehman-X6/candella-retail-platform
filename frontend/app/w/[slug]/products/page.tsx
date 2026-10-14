@@ -305,13 +305,13 @@ export default function ProductsPage() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-danger-ink"
         >
           {error}
         </p>
       )}
       {storeError && (
-        <p role="alert" className="text-sm text-red-300">
+        <p role="alert" className="text-sm text-danger-ink">
           {storeError}
         </p>
       )}
@@ -319,7 +319,7 @@ export default function ProductsPage() {
         <p className="text-sm text-muted">Loading products…</p>
       ) : products.length === 0 ? (
         <div className="rounded-2xl border border-line bg-surface p-10 text-center">
-          <PackagePlus className="mx-auto text-accent" size={28} />
+          <PackagePlus className="mx-auto text-accent-ink" size={28} />
           <h2 className="mt-4 font-semibold">
             {search ? "No matching products" : "No products yet"}
           </h2>
@@ -350,7 +350,7 @@ export default function ProductsPage() {
                   <div className="flex items-center gap-2">
                     <h2 className="font-semibold">{product.name}</h2>
                     {product.status === "archived" && (
-                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-muted">
+                      <span className="rounded-full bg-foreground/10 px-2 py-0.5 text-xs text-muted">
                         Archived
                       </span>
                     )}
@@ -406,7 +406,9 @@ export default function ProductsPage() {
                     </span>
                     <span
                       className={
-                        variant.quantity === 0 ? "text-amber-400" : "text-muted"
+                        variant.quantity === 0
+                          ? "text-warning-ink"
+                          : "text-muted"
                       }
                     >
                       {variant.quantity} in stock
@@ -414,7 +416,7 @@ export default function ProductsPage() {
                         <button
                           type="button"
                           onClick={() => openVariantEdit(product, variant)}
-                          className="ml-3 text-xs text-accent hover:underline"
+                          className="ml-3 text-xs text-accent-ink hover:underline"
                         >
                           Edit variant
                         </button>
@@ -648,7 +650,7 @@ export default function ProductsPage() {
                 </>
               )}
               {error && (
-                <p role="alert" className="text-sm text-red-300">
+                <p role="alert" className="text-sm text-danger-ink">
                   {error}
                 </p>
               )}

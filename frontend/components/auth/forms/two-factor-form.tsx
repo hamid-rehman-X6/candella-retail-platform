@@ -92,7 +92,7 @@ export function TwoFactorForm() {
             autoFocus
             disabled={verifying}
           />
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-danger-ink">{error}</p>}
 
           <Button
             size="lg"
@@ -119,7 +119,7 @@ export function TwoFactorForm() {
               setMode("backup");
               setError(undefined);
             }}
-            className="text-center text-sm text-muted transition-colors hover:text-accent"
+            className="text-center text-sm text-muted transition-colors hover:text-accent-ink"
           >
             Can&apos;t access your app? Use a backup code
           </button>
@@ -156,7 +156,7 @@ export function TwoFactorForm() {
               setMode("app");
               setError(undefined);
             }}
-            className="text-center text-sm text-muted transition-colors hover:text-accent"
+            className="text-center text-sm text-muted transition-colors hover:text-accent-ink"
           >
             Use authenticator app instead
           </button>
@@ -166,7 +166,7 @@ export function TwoFactorForm() {
       <p className="text-center text-sm text-muted">
         <Link
           href="/login"
-          className="font-medium text-accent transition-colors hover:text-accent-bright"
+          className="font-medium text-accent-ink transition-colors hover:text-accent-hover"
         >
           Back to sign in
         </Link>

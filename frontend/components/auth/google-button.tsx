@@ -43,7 +43,7 @@ export function GoogleButton({
       type="button"
       onClick={onClick}
       disabled={disabled || loading}
-      className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-full border border-line bg-white/5 text-sm font-medium text-foreground transition-all hover:border-line-strong hover:bg-white/10 disabled:pointer-events-none disabled:opacity-50"
+      className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-full border border-line bg-foreground/5 text-sm font-medium text-foreground transition-all hover:border-line-strong hover:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50"
     >
       {loading ? (
         <>

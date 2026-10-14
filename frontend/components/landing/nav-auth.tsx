@@ -15,7 +15,7 @@ import { cn } from "@/lib/cn";
  */
 
 const avatar =
-  "flex shrink-0 items-center justify-center rounded-full bg-accent/15 font-semibold text-accent ring-1 ring-accent/25";
+  "flex shrink-0 items-center justify-center rounded-full bg-accent/15 font-semibold text-accent-ink ring-1 ring-accent/25";
 
 /** Desktop actions (right side of the nav pill). */
 export function NavAuth() {
@@ -25,8 +25,8 @@ export function NavAuth() {
     // Neutral placeholder at roughly the real width, so the pill never jumps.
     return (
       <div className="hidden items-center gap-2 lg:flex" aria-hidden>
-        <div className="h-9 w-20 animate-pulse rounded-full bg-white/5" />
-        <div className="h-9 w-32 animate-pulse rounded-full bg-white/[0.07]" />
+        <div className="h-9 w-20 animate-pulse rounded-full bg-foreground/5" />
+        <div className="h-9 w-32 animate-pulse rounded-full bg-foreground/[0.07]" />
       </div>
     );
   }
@@ -88,7 +88,7 @@ export function NavAuthMobile({ onNavigate }: { onNavigate: () => void }) {
   if (session.status === "loading") {
     return (
       <div
-        className="mt-6 h-13 animate-pulse rounded-full bg-white/5"
+        className="mt-6 h-13 animate-pulse rounded-full bg-foreground/5"
         aria-hidden
       />
     );
@@ -116,7 +116,7 @@ export function NavAuthMobile({ onNavigate }: { onNavigate: () => void }) {
   const { user } = session;
   return (
     <div className="mt-6 flex flex-col gap-3">
-      <div className="flex items-center gap-3 rounded-2xl border border-line bg-white/[0.03] px-4 py-3">
+      <div className="flex items-center gap-3 rounded-2xl border border-line bg-foreground/[0.03] px-4 py-3">
         <span className={cn(avatar, "h-10 w-10 text-sm")}>
           {initials(user.fullName)}
         </span>

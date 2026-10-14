@@ -97,7 +97,7 @@ export function OtpInput({
           onKeyDown={(e) => handleKeyDown(i, e)}
           aria-label={`Digit ${i + 1}`}
           className={cn(
-            "h-14 w-full rounded-xl border bg-white/5 text-center text-xl font-semibold text-foreground transition-all outline-none focus:ring-2 focus:ring-accent/20",
+            "h-14 w-full rounded-xl border bg-foreground/5 text-center text-xl font-semibold text-foreground transition-all outline-none focus:ring-2 focus:ring-accent/20",
             error
               ? "border-red-500/60 focus:border-red-500/60"
               : digit

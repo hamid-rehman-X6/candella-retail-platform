@@ -68,7 +68,7 @@ export function Ecosystem() {
                         ease: "linear",
                       }}
                     >
-                      <Icon className="h-5 w-5 text-accent" />
+                      <Icon className="h-5 w-5 text-accent-ink" />
                     </motion.div>
                   );
                 })}
@@ -88,8 +88,8 @@ export function Ecosystem() {
               const Icon = pillar.icon;
               return (
                 <RevealItem key={pillar.title}>
-                  <div className="group flex gap-4 rounded-2xl border border-line bg-white/[0.02] p-5 transition-colors hover:border-line-strong hover:bg-white/[0.04]">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent ring-1 ring-accent/20">
+                  <div className="group flex gap-4 rounded-2xl border border-line bg-foreground/[0.02] p-5 transition-colors hover:border-line-strong hover:bg-foreground/[0.04]">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent-ink ring-1 ring-accent/20">
                       <Icon className="h-5 w-5" />
                     </span>
                     <div>

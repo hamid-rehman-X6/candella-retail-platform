@@ -15,7 +15,7 @@ export function BrandPanel() {
       <div className="bg-grid absolute inset-0 opacity-40" />
       <div className="absolute -top-32 -left-24 h-[32rem] w-[32rem] animate-aurora rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.22),transparent_62%)] blur-3xl" />
       <div className="absolute right-[-10%] bottom-[-10%] h-[28rem] w-[28rem] animate-aurora rounded-full bg-[radial-gradient(circle,rgba(180,83,9,0.18),transparent_65%)] blur-3xl [animation-delay:-8s]" />
-      <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_-10%,transparent_45%,rgba(0,0,0,0.5))]" />
+      <div className="brand-vignette absolute inset-0" />
 
       <div className="relative flex h-full flex-col justify-between p-12">
         <Logo />
@@ -35,7 +35,7 @@ export function BrandPanel() {
               const Icon = p.icon;
               return (
                 <li key={p.text} className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent ring-1 ring-accent/20">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent-ink ring-1 ring-accent/20">
                     <Icon className="h-4 w-4" />
                   </span>
                   <span className="text-sm text-foreground/85">{p.text}</span>
@@ -51,7 +51,7 @@ export function BrandPanel() {
             customers finally live in one place.”
           </blockquote>
           <figcaption className="mt-3 flex items-center gap-2 text-xs text-muted">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/15 text-[10px] font-semibold text-accent">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/15 text-[10px] font-semibold text-accent-ink">
               AK
             </span>
             Ayesha Khan · MediCare Pharmacy Group
@@ -66,7 +66,7 @@ export function BrandPanel() {
 export function CheckLine({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-2.5 text-sm text-foreground/85">
-      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent-ink">
         <Check className="h-3 w-3" />
       </span>
       {children}

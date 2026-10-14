@@ -40,7 +40,7 @@ function SoonItem({ label, icon: Icon }: { label: string; icon: LucideIcon }) {
         <Icon className="h-4.5 w-4.5" />
         {label}
       </span>
-      <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] tracking-wide text-subtle">
+      <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] tracking-wide text-subtle">
         Soon
       </span>
     </span>
@@ -90,7 +90,7 @@ export function Sidebar({
           <button
             onClick={onClose}
             aria-label="Close menu"
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-white/5 hover:text-foreground lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-foreground/5 hover:text-foreground lg:hidden"
           >
             <X className="h-5 w-5" />
           </button>
@@ -109,8 +109,8 @@ export function Sidebar({
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                   active
-                    ? "bg-accent/10 text-accent ring-1 ring-accent/20"
-                    : "text-muted hover:bg-white/5 hover:text-foreground",
+                    ? "bg-accent/10 text-accent-ink ring-1 ring-accent/20"
+                    : "text-muted hover:bg-foreground/5 hover:text-foreground",
                 )}
               >
                 <Icon className="h-4.5 w-4.5" />
@@ -132,8 +132,8 @@ export function Sidebar({
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                 pathname === workspacePath(current.slug, "/stores")
-                  ? "bg-accent/10 text-accent ring-1 ring-accent/20"
-                  : "text-muted hover:bg-white/5 hover:text-foreground",
+                  ? "bg-accent/10 text-accent-ink ring-1 ring-accent/20"
+                  : "text-muted hover:bg-foreground/5 hover:text-foreground",
               )}
             >
               <Store className="h-4.5 w-4.5" /> Stores
@@ -146,8 +146,8 @@ export function Sidebar({
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                 pathname === workspacePath(current.slug, "/staff")
-                  ? "bg-accent/10 text-accent ring-1 ring-accent/20"
-                  : "text-muted hover:bg-white/5 hover:text-foreground",
+                  ? "bg-accent/10 text-accent-ink ring-1 ring-accent/20"
+                  : "text-muted hover:bg-foreground/5 hover:text-foreground",
               )}
             >
               <Users className="h-4.5 w-4.5" /> Staff

@@ -206,7 +206,7 @@ export default function InventoryPage() {
         />
       </label>
       {storeError && (
-        <p role="alert" className="text-sm text-red-300">
+        <p role="alert" className="text-sm text-danger-ink">
           {storeError}
         </p>
       )}
@@ -238,7 +238,7 @@ export default function InventoryPage() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-danger-ink"
         >
           {error}
         </p>
@@ -257,7 +257,7 @@ export default function InventoryPage() {
           </p>
           {!search && (
             <Link
-              className="mt-4 inline-block text-sm text-accent"
+              className="mt-4 inline-block text-sm text-accent-ink"
               href={workspacePath(current.slug, "/products")}
             >
               Go to Products →
@@ -284,7 +284,7 @@ export default function InventoryPage() {
                   </td>
                   <td className="px-5 py-4 font-mono text-muted">{item.sku}</td>
                   <td
-                    className={`px-5 py-4 font-semibold ${item.quantity === 0 ? "text-amber-400" : ""}`}
+                    className={`px-5 py-4 font-semibold ${item.quantity === 0 ? "text-warning-ink" : ""}`}
                   >
                     {item.quantity}
                   </td>
@@ -356,7 +356,7 @@ export default function InventoryPage() {
                   {m.orderId && (
                     <Link
                       href={workspacePath(current.slug, `/sales/${m.orderId}`)}
-                      className="mt-1 inline-block text-xs text-accent hover:underline"
+                      className="mt-1 inline-block text-xs text-accent-ink hover:underline"
                     >
                       Open sale receipt
                     </Link>
@@ -365,7 +365,7 @@ export default function InventoryPage() {
                 <div className="text-right">
                   <p
                     className={
-                      m.delta >= 0 ? "text-emerald-400" : "text-amber-400"
+                      m.delta >= 0 ? "text-success-ink" : "text-warning-ink"
                     }
                   >
                     {m.delta >= 0 ? "+" : ""}
@@ -402,9 +402,9 @@ export default function InventoryPage() {
             <div className="flex justify-between">
               <div className="flex items-center gap-2">
                 {kind === "receive" ? (
-                  <ArrowDownToLine className="text-accent" />
+                  <ArrowDownToLine className="text-accent-ink" />
                 ) : (
-                  <ClipboardCheck className="text-accent" />
+                  <ClipboardCheck className="text-accent-ink" />
                 )}
                 <h2 className="text-xl font-semibold">
                   {kind === "receive" ? "Receive stock" : "Correct count"}
@@ -464,7 +464,7 @@ export default function InventoryPage() {
                 />
               </label>
               {error && (
-                <p role="alert" className="text-sm text-red-300">
+                <p role="alert" className="text-sm text-danger-ink">
                   {error}
                 </p>
               )}

@@ -109,7 +109,7 @@ export default function SalesHistoryPage() {
       <div>
         <Link
           href={workspacePath(current.slug, "/sales")}
-          className="inline-flex items-center gap-2 text-sm text-accent hover:underline"
+          className="inline-flex items-center gap-2 text-sm text-accent-ink hover:underline"
         >
           <ArrowLeft className="h-4 w-4" /> New sale
         </Link>
@@ -206,7 +206,7 @@ export default function SalesHistoryPage() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-danger-ink"
         >
           {error}
         </p>
@@ -241,7 +241,7 @@ export default function SalesHistoryPage() {
                 </td>
                 <td className="p-4 text-right">
                   <Link
-                    className="text-accent hover:underline"
+                    className="text-accent-ink hover:underline"
                     href={workspacePath(current.slug, `/sales/${sale.id}`)}
                   >
                     Open / reprint

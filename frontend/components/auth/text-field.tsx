@@ -42,7 +42,7 @@ export function TextField({
           type={type}
           aria-invalid={!!error}
           className={cn(
-            "h-12 w-full rounded-xl border bg-white/5 px-3.5 text-sm text-foreground transition-colors outline-none placeholder:text-subtle focus:ring-2 focus:ring-accent/20",
+            "h-12 w-full rounded-xl border bg-foreground/5 px-3.5 text-sm text-foreground transition-colors outline-none placeholder:text-subtle focus:ring-2 focus:ring-accent/20",
             Icon && "pl-11",
             error
               ? "border-red-500/60 focus:border-red-500/60"
@@ -52,7 +52,7 @@ export function TextField({
         />
       </div>
       {error ? (
-        <p className="text-xs text-red-400">{error}</p>
+        <p className="text-xs text-danger-ink">{error}</p>
       ) : hint ? (
         <p className="text-xs text-subtle">{hint}</p>
       ) : null}

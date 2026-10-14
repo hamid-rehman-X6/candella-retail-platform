@@ -110,7 +110,7 @@ export default function StaffPage() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-danger-ink"
         >
           {error}
         </p>
@@ -118,7 +118,7 @@ export default function StaffPage() {
       {notice && (
         <p
           role="status"
-          className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300"
+          className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-success-ink"
         >
           {notice}
         </p>
@@ -223,7 +223,7 @@ export default function StaffPage() {
                           "Staff access removed.",
                         );
                     }}
-                    className="rounded-lg border border-line px-3 py-2 text-sm text-red-300 disabled:opacity-40"
+                    className="rounded-lg border border-line px-3 py-2 text-sm text-danger-ink disabled:opacity-40"
                   >
                     Remove
                   </button>
@@ -280,7 +280,7 @@ export default function StaffPage() {
                       "Invitation revoked.",
                     )
                   }
-                  className="rounded-lg border border-line px-3 py-2 text-sm text-red-300 disabled:opacity-40"
+                  className="rounded-lg border border-line px-3 py-2 text-sm text-danger-ink disabled:opacity-40"
                 >
                   Revoke
                 </button>

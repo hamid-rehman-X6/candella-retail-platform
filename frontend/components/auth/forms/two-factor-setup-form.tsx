@@ -89,7 +89,7 @@ export function TwoFactorSetupForm() {
   if (step === "loading") {
     return (
       <div className="flex flex-col items-center gap-4 py-16 text-muted">
-        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+        <Loader2 className="h-6 w-6 animate-spin text-accent-ink" />
         Preparing two-factor setup…
       </div>
     );
@@ -104,7 +104,7 @@ export function TwoFactorSetupForm() {
           subtitle="Save these backup codes somewhere safe. Each one works once if you ever lose access to your authenticator app."
         />
 
-        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-line bg-white/[0.02] p-4 font-mono text-sm">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-line bg-foreground/[0.02] p-4 font-mono text-sm">
           {backupCodes.map((c) => (
             <span key={c} className="text-center text-foreground/85">
               {c}
@@ -149,7 +149,7 @@ export function TwoFactorSetupForm() {
             autoFocus
             disabled={verifying}
           />
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-danger-ink">{error}</p>}
 
           <Button
             size="lg"
@@ -176,7 +176,7 @@ export function TwoFactorSetupForm() {
               setStep("scan");
               setError(undefined);
             }}
-            className="text-center text-sm text-muted transition-colors hover:text-accent"
+            className="text-center text-sm text-muted transition-colors hover:text-accent-ink"
           >
             Back to QR code
           </button>
@@ -194,7 +194,7 @@ export function TwoFactorSetupForm() {
         subtitle="Scan this QR code with an authenticator app like Google Authenticator, 1Password or Authy."
       />
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-danger-ink">{error}</p>}
 
       <div className="flex flex-col items-center gap-5">
         <div className="rounded-2xl bg-white p-4 shadow-lg">
@@ -214,13 +214,13 @@ export function TwoFactorSetupForm() {
           <button
             type="button"
             onClick={copySecret}
-            className="flex w-full items-center justify-between gap-3 rounded-xl border border-line bg-white/5 px-4 py-3 font-mono text-sm tracking-wider text-foreground transition-colors hover:border-line-strong"
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-line bg-foreground/5 px-4 py-3 font-mono text-sm tracking-wider text-foreground transition-colors hover:border-line-strong"
           >
             {secret || "…"}
             <span className="flex items-center gap-1 text-xs text-muted">
               {copied ? (
                 <>
-                  <Check className="h-3.5 w-3.5 text-emerald-400" /> Copied
+                  <Check className="h-3.5 w-3.5 text-success-ink" /> Copied
                 </>
               ) : (
                 <>
@@ -247,7 +247,7 @@ export function TwoFactorSetupForm() {
         </Button>
         <Link
           href="/dashboard"
-          className="text-center text-sm text-muted transition-colors hover:text-accent"
+          className="text-center text-sm text-muted transition-colors hover:text-accent-ink"
         >
           Skip for now
         </Link>

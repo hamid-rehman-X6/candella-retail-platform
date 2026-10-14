@@ -16,11 +16,15 @@ const styles: Record<
 > = {
   success: {
     icon: CheckCircle2,
-    tone: "text-emerald-400",
+    tone: "text-success-ink",
     ring: "ring-emerald-400/20",
   },
-  error: { icon: AlertCircle, tone: "text-red-400", ring: "ring-red-400/20" },
-  info: { icon: Info, tone: "text-accent", ring: "ring-accent/20" },
+  error: {
+    icon: AlertCircle,
+    tone: "text-danger-ink",
+    ring: "ring-red-400/20",
+  },
+  info: { icon: Info, tone: "text-accent-ink", ring: "ring-accent/20" },
 };
 
 /**
@@ -72,7 +76,7 @@ export function Toaster() {
                 type="button"
                 onClick={() => dismissToast(t.id)}
                 aria-label="Dismiss notification"
-                className="-m-1 shrink-0 rounded-lg p-1 text-subtle transition-colors hover:bg-white/5 hover:text-foreground"
+                className="-m-1 shrink-0 rounded-lg p-1 text-subtle transition-colors hover:bg-foreground/5 hover:text-foreground"
               >
                 <X className="h-4 w-4" />
               </button>

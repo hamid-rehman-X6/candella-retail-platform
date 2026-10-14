@@ -98,7 +98,7 @@ export function ResetPasswordForm() {
       />
 
       {formError && (
-        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-danger-ink">
           {formError}
         </p>
       )}
@@ -145,7 +145,7 @@ export function ResetPasswordForm() {
       <p className="text-center text-sm text-muted">
         <Link
           href="/login"
-          className="font-medium text-accent transition-colors hover:text-accent-bright"
+          className="font-medium text-accent-ink transition-colors hover:text-accent-hover"
         >
           Back to sign in
         </Link>

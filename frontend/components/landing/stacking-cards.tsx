@@ -37,7 +37,7 @@ function StackCard({
       >
         <div className="grid gap-8 p-8 sm:p-12 md:grid-cols-[1.1fr_0.9fr]">
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-accent">
+            <span className="text-sm font-semibold text-accent-ink">
               Step {card.step}
             </span>
             <h3 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -50,9 +50,9 @@ function StackCard({
               {card.points.map((p) => (
                 <li
                   key={p}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white/5 px-3 py-1.5 text-xs text-foreground/85"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line bg-foreground/5 px-3 py-1.5 text-xs text-foreground/85"
                 >
-                  <Check className="h-3 w-3 text-accent" />
+                  <Check className="h-3 w-3 text-accent-ink" />
                   {p}
                 </li>
               ))}
@@ -67,7 +67,7 @@ function StackCard({
               <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-linear-to-br from-accent-bright to-accent-deep text-black shadow-[0_0_50px_-8px_rgba(245,158,11,0.7)]">
                 <Icon className="h-9 w-9" />
               </span>
-              <span className="text-7xl font-bold text-white/5">
+              <span className="text-7xl font-bold text-foreground/5">
                 {card.step}
               </span>
             </div>
@@ -105,7 +105,7 @@ export function StackingCards() {
               key={card.step}
               className="card-surface ring-gradient relative overflow-hidden rounded-3xl p-8"
             >
-              <span className="text-sm font-semibold text-accent">
+              <span className="text-sm font-semibold text-accent-ink">
                 Step {card.step}
               </span>
               <h3 className="mt-2 text-2xl font-semibold">{card.title}</h3>

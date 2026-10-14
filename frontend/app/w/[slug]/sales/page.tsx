@@ -206,7 +206,7 @@ export default function SalesPage() {
     <div className="mx-auto max-w-7xl space-y-6 pb-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold tracking-[0.22em] text-accent uppercase">
+          <p className="text-xs font-semibold tracking-[0.22em] text-accent-ink uppercase">
             Point of sale
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
@@ -227,7 +227,7 @@ export default function SalesPage() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-danger-ink"
         >
           {error}
         </p>
@@ -255,7 +255,7 @@ export default function SalesPage() {
         </span>
       </label>
       {storeError && (
-        <p role="alert" className="text-sm text-red-300">
+        <p role="alert" className="text-sm text-danger-ink">
           {storeError}
         </p>
       )}
@@ -296,7 +296,7 @@ export default function SalesPage() {
                   : "No products available yet."}{" "}
                 <Link
                   href={workspacePath(current.slug, "/inventory")}
-                  className="text-accent hover:underline"
+                  className="text-accent-ink hover:underline"
                 >
                   View inventory
                 </Link>
@@ -325,7 +325,7 @@ export default function SalesPage() {
                     </span>
                   </span>
                   <span className="shrink-0 text-right">
-                    <span className="block font-semibold text-accent">
+                    <span className="block font-semibold text-accent-ink">
                       {formatMoney(item.priceMinor, current.currencyCode)}
                     </span>
                     <span className="mt-1 block text-xs text-muted">
@@ -343,7 +343,7 @@ export default function SalesPage() {
           className="rounded-2xl border border-line bg-surface p-5 lg:sticky lg:top-20"
         >
           <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <ShoppingCart className="h-5 w-5 text-accent" /> Cart
+            <ShoppingCart className="h-5 w-5 text-accent-ink" /> Cart
             <span className="ml-auto text-xs font-normal text-muted">
               {cart.length} line(s)
             </span>
@@ -371,7 +371,7 @@ export default function SalesPage() {
                       type="button"
                       onClick={() => remove(item.variantId)}
                       aria-label={`Remove ${item.sku}`}
-                      className="text-muted hover:text-red-300"
+                      className="text-muted hover:text-danger-ink"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -458,7 +458,7 @@ export default function SalesPage() {
                 );
                 requestKey.current = null;
               }}
-              className="text-xs text-accent hover:underline disabled:opacity-40"
+              className="text-xs text-accent-ink hover:underline disabled:opacity-40"
             >
               Exact cash
             </button>

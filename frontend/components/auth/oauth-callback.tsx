@@ -102,7 +102,7 @@ export function OAuthCallback({ status, event, reason, mfaChallenge }: Props) {
     <div className="flex flex-col items-center text-center">
       <LogoMark className="h-12 w-12 rounded-2xl" />
       <div className="mt-8 flex items-center gap-2.5 text-muted">
-        <Loader2 className="h-4 w-4 animate-spin text-accent" />
+        <Loader2 className="h-4 w-4 animate-spin text-accent-ink" />
         <p className="text-sm" aria-live="polite">
           {message}
         </p>

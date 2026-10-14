@@ -64,7 +64,7 @@ export function ScrollToTop() {
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              className="text-white/10"
+              className="text-foreground/10"
             />
             <motion.circle
               cx="24"
@@ -74,12 +74,12 @@ export function ScrollToTop() {
               stroke="currentColor"
               strokeWidth="2"
               strokeLinecap="round"
-              className="text-accent"
+              className="text-accent-ink"
               style={{ pathLength: progress }}
             />
           </svg>
 
-          <ArrowUp className="relative h-5 w-5 transition-transform group-hover:-translate-y-0.5 group-hover:text-accent" />
+          <ArrowUp className="relative h-5 w-5 transition-transform group-hover:-translate-y-0.5 group-hover:text-accent-ink" />
         </motion.button>
       )}
     </AnimatePresence>

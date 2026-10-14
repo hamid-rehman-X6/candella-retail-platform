@@ -47,9 +47,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#08080a",
-  colorScheme: "dark",
+  themeColor: "#f8f7f4",
+  colorScheme: "light dark",
 };
+
+const themeScript = `(function(){try{var theme=localStorage.getItem("candella-theme")==="dark"?"dark":"light";document.documentElement.dataset.theme=theme;var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute("content",theme==="dark"?"#08080a":"#f8f7f4")}catch(_){document.documentElement.dataset.theme="light"}})()`;
 
 export default function RootLayout({
   children,
@@ -57,7 +59,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html
+      lang="en"
+      data-theme="light"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable}`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="min-h-screen antialiased">
         <Preloader />
         {children}

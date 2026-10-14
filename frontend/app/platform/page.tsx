@@ -8,7 +8,7 @@ export default async function PlatformOverviewPage() {
 
   if (!overview) {
     return (
-      <p className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 text-sm text-slate-400">
+      <p className="rounded-xl border border-line bg-surface/50 p-6 text-sm text-muted">
         Couldn&apos;t load platform metrics. Check that the API is reachable.
       </p>
     );
@@ -19,10 +19,10 @@ export default async function PlatformOverviewPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-white">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           Platform overview
         </h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-muted">
           Every workspace and account on Candella.
         </p>
       </div>
@@ -59,12 +59,12 @@ export default async function PlatformOverviewPage() {
 
       <div>
         <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold tracking-tight text-white">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">
             Recent activity
           </h2>
           <Link
             href="/platform/tenants"
-            className="inline-flex items-center gap-1 text-sm text-rose-300 transition-colors hover:text-rose-200"
+            className="inline-flex items-center gap-1 text-sm text-platform-accent transition-colors hover:text-platform-accent"
           >
             Browse workspaces
             <ArrowRight className="h-3.5 w-3.5" />

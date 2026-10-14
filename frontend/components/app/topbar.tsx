@@ -18,6 +18,7 @@ import { toast } from "@/lib/toast";
 import { industryLabel } from "@/lib/industries";
 import { initials } from "@/lib/user-name";
 import { cn } from "@/lib/cn";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const router = useRouter();
@@ -44,7 +45,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
       <button
         onClick={onMenuClick}
         aria-label="Open menu"
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-white/5 hover:text-foreground lg:hidden"
+        className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-foreground/5 hover:text-foreground lg:hidden"
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -53,7 +54,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
       <div className="relative">
         <button
           onClick={() => setWsOpen((v) => !v)}
-          className="flex items-center gap-2.5 rounded-xl border border-line bg-white/3 px-3 py-2 text-left transition-colors hover:border-line-strong"
+          className="flex items-center gap-2.5 rounded-xl border border-line bg-foreground/3 px-3 py-2 text-left transition-colors hover:border-line-strong"
         >
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-linear-to-br from-accent-bright to-accent-deep text-xs font-bold text-black">
             {current.name.charAt(0).toUpperCase()}
@@ -85,7 +86,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
                   key={ws.id}
                   href={workspacePath(ws.slug)}
                   onClick={() => setWsOpen(false)}
-                  className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-white/5"
+                  className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-foreground/5"
                 >
                   <span className="min-w-0">
                     <span className="block truncate font-medium text-foreground">
@@ -96,7 +97,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
                     </span>
                   </span>
                   {ws.id === current.id && (
-                    <Check className="h-4 w-4 shrink-0 text-accent" />
+                    <Check className="h-4 w-4 shrink-0 text-accent-ink" />
                   )}
                 </Link>
               ))}
@@ -104,7 +105,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
               <Link
                 href={`/onboarding?from=${encodeURIComponent(current.slug)}`}
                 onClick={() => setWsOpen(false)}
-                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted transition-colors hover:bg-white/5 hover:text-foreground"
+                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted transition-colors hover:bg-foreground/5 hover:text-foreground"
               >
                 <Plus className="h-4 w-4" />
                 New workspace
@@ -116,12 +117,14 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
 
       <div className="ml-auto" />
 
+      <ThemeToggle />
+
       {/* User menu */}
       <div className="relative">
         <button
           onClick={() => setUserOpen((v) => !v)}
           aria-label="Account menu"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold text-accent ring-1 ring-accent/25 transition-transform hover:scale-105"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold text-accent-ink ring-1 ring-accent/25 transition-transform hover:scale-105"
         >
           {initials(user.fullName)}
         </button>
@@ -144,7 +147,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
                 onClick={handleLogout}
                 disabled={signingOut}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-muted transition-colors hover:bg-white/5 hover:text-foreground",
+                  "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-muted transition-colors hover:bg-foreground/5 hover:text-foreground",
                   signingOut && "opacity-60",
                 )}
               >
