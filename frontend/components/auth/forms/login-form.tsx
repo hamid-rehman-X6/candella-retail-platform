@@ -12,7 +12,13 @@ import { Divider } from "@/components/auth/divider";
 import { Button } from "@/components/ui/button";
 import { isValidEmail } from "@/lib/validation";
 import { ApiError } from "@/lib/api";
-import { login, googleStartUrl, pendingEmail, mfaToken } from "@/lib/auth-api";
+import {
+  login,
+  googleStartUrl,
+  pendingEmail,
+  mfaToken,
+  pendingInvitation,
+} from "@/lib/auth-api";
 import { setSessionUser } from "@/lib/session-store";
 import { authErrorCopy } from "@/lib/auth-errors";
 
@@ -51,7 +57,7 @@ export function LoginForm({ errorCode }: { errorCode?: string }) {
       }
       // Signed in — the dashboard guard sends new users to onboarding.
       if (res.user) setSessionUser(res.user);
-      router.push("/dashboard");
+      router.push(pendingInvitation.destination("/dashboard"));
     } catch (err) {
       setLoading(false);
       if (err instanceof ApiError) {

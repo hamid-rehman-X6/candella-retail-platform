@@ -127,6 +127,22 @@ export function createWorkspace(input: {
 
 const EMAIL_KEY = "candella:pending-email";
 const MFA_TOKEN_KEY = "candella:mfa-token";
+const INVITATION_TOKEN_KEY = "candella:pending-invitation";
+
+export const pendingInvitation = {
+  set: (token: string) => sessionStorage.setItem(INVITATION_TOKEN_KEY, token),
+  get: () =>
+    typeof window === "undefined"
+      ? ""
+      : (sessionStorage.getItem(INVITATION_TOKEN_KEY) ?? ""),
+  clear: () => sessionStorage.removeItem(INVITATION_TOKEN_KEY),
+  destination: (fallback: string) => {
+    const token = pendingInvitation.get();
+    return token
+      ? `/invitations/accept?token=${encodeURIComponent(token)}`
+      : fallback;
+  },
+};
 
 export const pendingEmail = {
   set: (email: string) => sessionStorage.setItem(EMAIL_KEY, email),

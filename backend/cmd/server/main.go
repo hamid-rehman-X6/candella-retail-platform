@@ -80,6 +80,8 @@ func main() {
 	wsRepo := workspace.NewPostgresRepository(pool)
 	wsSvc := workspace.NewService(wsRepo)
 	wsHandler := workspace.NewHandler(wsSvc)
+	staffHandler := workspace.NewStaffHandler(workspace.NewStaffService(
+		workspace.NewStaffPostgresRepository(pool), mail, cfg.AppBaseURL), auditor)
 	catalogHandler := catalog.NewHandler(catalog.NewService(catalog.NewPostgresRepository(pool)), auditor, log)
 	salesHandler := sales.NewHandler(sales.NewService(sales.NewPostgresRepository(pool)), auditor, log)
 
@@ -111,6 +113,7 @@ func main() {
 		health.Routes(api)
 		auth.Routes(api, authHandler, authLimiter.Middleware)
 		workspace.Routes(api, wsHandler, authHandler.RequireAuth)
+		workspace.StaffRoutes(api, staffHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		catalog.Routes(api, catalogHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		sales.Routes(api, salesHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		platform.Routes(api, platformHandler, authHandler.RequireAuth)
