@@ -11,13 +11,8 @@ import { Archive, Pencil, Plus, Search, Truck } from "lucide-react";
 import { useApp } from "@/components/app/app-context";
 import { useStoreSelection } from "@/lib/use-store-selection";
 import { Select } from "@/components/ui/select";
-import {
-  formatMoney,
-  listStock,
-  minorDigits,
-  parseMoney,
-  type StockItem,
-} from "@/lib/catalog-api";
+import { listStock, type StockItem } from "@/lib/catalog-api";
+import { formatMoney, minorDigits, parseMoney } from "@/lib/money";
 import {
   createSupplier,
   listSupplierSources,

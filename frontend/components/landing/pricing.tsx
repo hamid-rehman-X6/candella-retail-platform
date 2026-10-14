@@ -44,8 +44,8 @@ export function Pricing() {
                 </h3>
                 <p className="mt-2 text-sm text-muted">{tier.description}</p>
 
-                <div className="mt-6 flex items-end gap-1.5">
-                  <span className="text-5xl font-semibold tracking-tight">
+                <div className="mt-6 flex flex-wrap items-end gap-x-1.5">
+                  <span className="text-4xl font-semibold tracking-tight whitespace-nowrap">
                     {tier.price}
                   </span>
                   <span className="mb-1.5 text-sm text-subtle">

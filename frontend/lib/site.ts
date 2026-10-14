@@ -379,7 +379,7 @@ export type PricingTier = {
 export const pricingTiers: PricingTier[] = [
   {
     name: "Starter",
-    price: "$29",
+    price: "Rs 8,000",
     period: "/store / month",
     description: "For single-counter shops getting started.",
     features: [
@@ -392,7 +392,7 @@ export const pricingTiers: PricingTier[] = [
   },
   {
     name: "Growth",
-    price: "$79",
+    price: "Rs 22,000",
     period: "/store / month",
     description: "For multi-store retailers scaling up.",
     features: [

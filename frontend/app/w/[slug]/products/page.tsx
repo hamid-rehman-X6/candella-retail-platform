@@ -16,15 +16,13 @@ import { toast } from "@/lib/toast";
 import {
   addVariant,
   createProduct,
-  formatMoney,
   listProducts,
-  minorDigits,
-  parseMoney,
   updateProduct,
   updateVariant,
   type Product,
   type Variant,
 } from "@/lib/catalog-api";
+import { formatMoney, minorDigits, parseMoney } from "@/lib/money";
 
 const field =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-foreground outline-none focus:border-accent";

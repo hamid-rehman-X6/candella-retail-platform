@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+// DefaultCurrency is used when a workspace is created without a currency.
+// Candella serves Pakistani retailers; keep in sync with tenants.currency_code's
+// column default (migration 0023).
+const DefaultCurrency = "PKR"
+
 // validIndustries mirrors the CHECK constraint on tenants.industry_type.
 var validIndustries = map[string]bool{
 	"pos_general": true, "pharmacy": true, "garments": true, "cosmetics": true,
@@ -39,7 +44,7 @@ func (s *Service) Create(ctx context.Context, ownerUserID string, req createRequ
 
 	currency := strings.ToUpper(strings.TrimSpace(req.CurrencyCode))
 	if len(currency) != 3 {
-		currency = "USD"
+		currency = DefaultCurrency
 	}
 	timezone := strings.TrimSpace(req.Timezone)
 	if timezone == "" {
