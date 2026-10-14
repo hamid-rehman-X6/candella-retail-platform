@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { ArrowLeft, Download, Upload } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
 import { useStoreSelection } from "@/lib/use-store-selection";
+import { Select } from "@/components/ui/select";
 import {
   confirmProductImport,
   downloadProductCSV,
@@ -158,25 +159,25 @@ export default function ImportProductsPage() {
       <section className="space-y-4 rounded-2xl border border-line bg-surface p-5">
         <label className="block max-w-xs text-sm font-medium">
           Stock location
-          <select
-            aria-label="CSV stock store"
+          <Select
+            ariaLabel="CSV stock store"
             value={storeId}
             disabled={busy}
-            onChange={(event) => {
-              selectStore(event.target.value);
+            onValueChange={(value) => {
+              selectStore(value);
               reset();
             }}
             className="mt-2 w-full rounded-xl border border-line bg-canvas p-2.5 text-sm"
-          >
-            {!storeId && <option value="">Select a store</option>}
-            {stores
-              .filter((location) => location.accessible)
-              .map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                </option>
-              ))}
-          </select>
+            options={[
+              ...(!storeId ? [{ value: "", label: "Select a store" }] : []),
+              ...stores
+                .filter((location) => location.accessible)
+                .map((location) => ({
+                  value: location.id,
+                  label: location.name,
+                })),
+            ]}
+          />
         </label>
         <p className="text-sm text-muted">
           New products receive opening stock at{" "}
@@ -221,17 +222,19 @@ export default function ImportProductsPage() {
           </label>
           <label className="text-sm font-medium">
             Import mode
-            <select
+            <Select
+              ariaLabel="Import mode"
               value={mode}
-              onChange={(event) => {
-                setMode(event.target.value as "create" | "update");
+              onValueChange={(value) => {
+                setMode(value as "create" | "update");
                 reset();
               }}
               className="mt-2 block w-full rounded-xl border border-line bg-canvas p-2.5 text-sm"
-            >
-              <option value="create">Create new products only</option>
-              <option value="update">Update existing products by SKU</option>
-            </select>
+              options={[
+                { value: "create", label: "Create new products only" },
+                { value: "update", label: "Update existing products by SKU" },
+              ]}
+            />
           </label>
         </div>
         <p className="text-xs text-muted">
