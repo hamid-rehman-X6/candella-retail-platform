@@ -32,12 +32,20 @@ export default function ReceiptPage() {
   return (
     <div className="mx-auto max-w-2xl pb-12">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <Link
-          href={workspacePath(current.slug, "/sales")}
-          className="inline-flex items-center gap-2 text-sm text-accent hover:underline"
-        >
-          <ArrowLeft className="h-4 w-4" /> New sale
-        </Link>
+        <div className="flex flex-wrap gap-4">
+          <Link
+            href={workspacePath(current.slug, "/sales/history")}
+            className="inline-flex items-center gap-2 text-sm text-accent hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" /> Sales history
+          </Link>
+          <Link
+            href={workspacePath(current.slug, "/sales")}
+            className="text-sm text-accent hover:underline"
+          >
+            New sale
+          </Link>
+        </div>
         {sale && (
           <button
             type="button"
@@ -73,6 +81,9 @@ export default function ReceiptPage() {
                 timeStyle: "short",
                 timeZone: current.timezone,
               }).format(new Date(sale.createdAt))}
+            </p>
+            <p className="mt-1 text-xs text-muted print:text-gray-600">
+              Cashier: {sale.cashierName || sale.cashierId}
             </p>
           </header>
           <div className="divide-y divide-line print:divide-gray-300">

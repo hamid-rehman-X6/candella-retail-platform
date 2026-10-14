@@ -173,16 +173,24 @@ export default function SalesPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-10">
-      <div>
-        <p className="text-xs font-semibold tracking-[0.22em] text-accent uppercase">
-          Point of sale
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-          Cash checkout
-        </h1>
-        <p className="mt-1 text-sm text-muted">
-          Search or scan a product, take cash, and open a receipt.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold tracking-[0.22em] text-accent uppercase">
+            Point of sale
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+            Cash checkout
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            Search or scan a product, take cash, and open a receipt.
+          </p>
+        </div>
+        <Link
+          href={workspacePath(current.slug, "/sales/history")}
+          className="rounded-xl border border-line px-4 py-2.5 text-sm font-medium hover:border-accent/50"
+        >
+          Sales history
+        </Link>
       </div>
 
       {error && (

@@ -50,8 +50,19 @@ func TestCreateProductWithOpeningStockPostgres(t *testing.T) {
 	if err := goose.SetDialect("postgres"); err != nil {
 		t.Fatal(err)
 	}
+	conn, err := sqlDB.Conn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if _, err := conn.ExecContext(ctx, `SELECT pg_advisory_lock(hashtext('candella_integration_migrations'))`); err != nil {
+		t.Fatal(err)
+	}
 	if err := goose.UpContext(ctx, sqlDB, "."); err != nil {
 		t.Fatalf("migrations on disposable test DB: %v", err)
+	}
+	if _, err := conn.ExecContext(ctx, `SELECT pg_advisory_unlock(hashtext('candella_integration_migrations'))`); err != nil {
+		t.Fatal(err)
 	}
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {

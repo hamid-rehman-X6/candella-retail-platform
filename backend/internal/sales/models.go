@@ -26,6 +26,8 @@ type SaleItem struct {
 type Sale struct {
 	ID                string     `json:"id"`
 	OrderNumber       string     `json:"orderNumber"`
+	CashierID         string     `json:"cashierId"`
+	CashierName       string     `json:"cashierName"`
 	Status            string     `json:"status"`
 	CurrencyCode      string     `json:"currencyCode"`
 	Items             []SaleItem `json:"items"`
@@ -34,4 +36,25 @@ type Sale struct {
 	CashReceivedMinor int64      `json:"cashReceivedMinor"`
 	ChangeMinor       int64      `json:"changeMinor"`
 	CreatedAt         time.Time  `json:"createdAt"`
+}
+
+type SaleSummary struct {
+	ID              string    `json:"id"`
+	OrderNumber     string    `json:"orderNumber"`
+	CashierID       string    `json:"cashierId"`
+	CashierName     string    `json:"cashierName"`
+	CurrencyCode    string    `json:"currencyCode"`
+	GrandTotalMinor int64     `json:"grandTotalMinor"`
+	CreatedAt       time.Time `json:"createdAt"`
+}
+
+type SalesFilter struct {
+	FromDate       string `json:"fromDate"`
+	ToDate         string `json:"toDate"`
+	OrderNumber    string `json:"orderNumber"`
+	Cashier        string `json:"cashier"`
+	MinAmountMinor *int64 `json:"minAmountMinor"`
+	MaxAmountMinor *int64 `json:"maxAmountMinor"`
+	Limit          int    `json:"limit"`
+	Offset         int    `json:"offset"`
 }
