@@ -127,6 +127,20 @@ export function Sidebar({
           ))}
           {canManageStaff && (
             <Link
+              href={workspacePath(current.slug, "/stores")}
+              onClick={onClose}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname === workspacePath(current.slug, "/stores")
+                  ? "bg-accent/10 text-accent ring-1 ring-accent/20"
+                  : "text-muted hover:bg-white/5 hover:text-foreground",
+              )}
+            >
+              <Store className="h-4.5 w-4.5" /> Stores
+            </Link>
+          )}
+          {canManageStaff && (
+            <Link
               href={workspacePath(current.slug, "/staff")}
               onClick={onClose}
               className={cn(

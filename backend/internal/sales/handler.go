@@ -12,6 +12,7 @@ import (
 
 	"candella-ecosystem/backend/internal/audit"
 	"candella-ecosystem/backend/internal/auth"
+	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/internal/tenant"
 	"candella-ecosystem/backend/pkg/response"
 )
@@ -31,6 +32,11 @@ func canCheckout(role string) bool {
 }
 
 func (h *Handler) writeErr(w http.ResponseWriter, err error) {
+	var storeErr *store.Error
+	if errors.As(err, &storeErr) {
+		response.Error(w, storeErr.Status, storeErr.Code, storeErr.Message)
+		return
+	}
 	if e, ok := asSaleError(err); ok {
 		response.Error(w, e.Status, e.Code, e.Message)
 		return
@@ -86,6 +92,11 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 		h.writeErr(w, err)
 		return
 	}
+	if in.StoreID == "" {
+		h.writeErr(w, store.ErrSelection)
+		return
+	}
+	r = r.WithContext(store.WithSelection(r.Context(), in.StoreID, u.ID, t.Role))
 	sale, created, err := h.svc.Checkout(r.Context(), t.TenantID, u.ID, u.FullName, in)
 	if err != nil {
 		h.writeErr(w, err)
@@ -102,6 +113,7 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 	t, _ := tenant.FromContext(r.Context())
+	u, _ := auth.UserFromContext(r.Context())
 	if !canCheckout(t.Role) {
 		response.Error(w, http.StatusForbidden, "insufficient_role", "Ask a workspace owner to grant you sales access.")
 		return
@@ -126,7 +138,7 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 		h.writeErr(w, ErrInvalidFilter)
 		return
 	}
-	list, hasMore, err := h.svc.Search(r.Context(), t.TenantID, filter)
+	list, hasMore, err := h.svc.Search(store.WithActor(r.Context(), u.ID, t.Role), t.TenantID, filter)
 	if err != nil {
 		h.writeErr(w, err)
 		return
@@ -136,11 +148,12 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Receipt(w http.ResponseWriter, r *http.Request) {
 	t, _ := tenant.FromContext(r.Context())
+	u, _ := auth.UserFromContext(r.Context())
 	if !canCheckout(t.Role) {
 		response.Error(w, http.StatusForbidden, "insufficient_role", "Ask a workspace owner to grant you sales access.")
 		return
 	}
-	sale, err := h.svc.Receipt(r.Context(), t.TenantID, chi.URLParam(r, "orderID"))
+	sale, err := h.svc.Receipt(store.WithActor(r.Context(), u.ID, t.Role), t.TenantID, chi.URLParam(r, "orderID"))
 	if err != nil {
 		h.writeErr(w, err)
 		return

@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/pkg/database"
 	"candella-ecosystem/backend/pkg/id"
 )
@@ -39,10 +40,10 @@ func withSalesTx(ctx context.Context, db *pgxpool.Pool, tenantID string, fn func
 
 func requestHash(userID string, in CheckoutInput) string {
 	payload, _ := json.Marshal(struct {
-		UserID string
-		Items  []CartItem
-		Cash   int64
-	}{userID, in.Items, in.CashReceivedMinor})
+		UserID, StoreID string
+		Items           []CartItem
+		Cash            int64
+	}{userID, in.StoreID, in.Items, in.CashReceivedMinor})
 	sum := sha256.Sum256(payload)
 	return hex.EncodeToString(sum[:])
 }
@@ -52,6 +53,11 @@ func (r *postgresRepository) Create(ctx context.Context, tenantID, userID, cashi
 	created := false
 	hash := requestHash(userID, in)
 	err := withSalesTx(ctx, r.db, tenantID, func(tx pgx.Tx, currency, _ string) error {
+		location, err := store.Resolve(ctx, tx, tenantID)
+		if err != nil {
+			return err
+		}
+		storeID := location.ID
 		// Serialize requests with the same key before checking or touching stock.
 		// A hash collision only makes unrelated checkouts wait; uniqueness still
 		// uses the full tenant ID and key in the orders table.
@@ -59,7 +65,7 @@ func (r *postgresRepository) Create(ctx context.Context, tenantID, userID, cashi
 			return err
 		}
 		var existingID, existingHash string
-		err := tx.QueryRow(ctx, `SELECT id, request_hash FROM orders WHERE tenant_id=$1 AND idempotency_key=$2`,
+		err = tx.QueryRow(ctx, `SELECT id, request_hash FROM orders WHERE tenant_id=$1 AND idempotency_key=$2`,
 			tenantID, in.IdempotencyKey).Scan(&existingID, &existingHash)
 		if err == nil {
 			if existingHash != hash {
@@ -72,10 +78,6 @@ func (r *postgresRepository) Create(ctx context.Context, tenantID, userID, cashi
 			return err
 		}
 
-		var storeID string
-		if err := tx.QueryRow(ctx, `SELECT id FROM stores WHERE tenant_id=$1 AND is_default`, tenantID).Scan(&storeID); err != nil {
-			return err
-		}
 		items := make([]SaleItem, 0, len(in.Items))
 		before := make([]int64, 0, len(in.Items))
 		var total int64
@@ -130,9 +132,9 @@ func (r *postgresRepository) Create(ctx context.Context, tenantID, userID, cashi
 		orderID := id.New(id.Order)
 		orderNumber := fmt.Sprintf("POS-%06d", sequence)
 		if _, err := tx.Exec(ctx, `INSERT INTO orders
-			(id, tenant_id, store_id, order_number, idempotency_key, request_hash,
+			(id, tenant_id, store_id, store_name_snapshot, order_number, idempotency_key, request_hash,
 			 currency_code, subtotal_minor, grand_total_minor, created_by, cashier_name_snapshot)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, orderID, tenantID, storeID, orderNumber,
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, orderID, tenantID, storeID, location.Name, orderNumber,
 			in.IdempotencyKey, hash, currency, total, total, userID, cashierName); err != nil {
 			return err
 		}
@@ -190,6 +192,14 @@ func (r *postgresRepository) Find(ctx context.Context, tenantID, orderID string)
 	err := withSalesTx(ctx, r.db, tenantID, func(tx pgx.Tx, _, _ string) error {
 		var err error
 		sale, err = loadSale(ctx, tx, tenantID, orderID)
+		if err != nil {
+			return err
+		}
+		if userID, role, ok := store.Actor(ctx); ok && role == "member" {
+			if _, err := store.Resolve(store.WithSelection(ctx, sale.StoreID, userID, role), tx, tenantID); err != nil {
+				return ErrNotFound
+			}
+		}
 		return err
 	})
 	return sale, err
@@ -198,6 +208,8 @@ func (r *postgresRepository) Find(ctx context.Context, tenantID, orderID string)
 func (r *postgresRepository) Search(ctx context.Context, tenantID string, filter SalesFilter) ([]SaleSummary, bool, error) {
 	results := []SaleSummary{}
 	hasMore := false
+	actorID, role, hasActor := store.Actor(ctx)
+	canViewAll := !hasActor || role != "member"
 	err := withSalesTx(ctx, r.db, tenantID, func(tx pgx.Tx, _, timezone string) error {
 		location, err := time.LoadLocation(timezone)
 		if err != nil {
@@ -219,7 +231,7 @@ func (r *postgresRepository) Search(ctx context.Context, tenantID string, filter
 			next := day.AddDate(0, 0, 1)
 			until = &next
 		}
-		rows, err := tx.Query(ctx, `SELECT id, order_number, created_by, cashier_name_snapshot,
+		rows, err := tx.Query(ctx, `SELECT id, store_id, store_name_snapshot, order_number, created_by, cashier_name_snapshot,
 			currency_code, grand_total_minor, created_at FROM orders
 			WHERE tenant_id=$1 AND status='completed'
 			AND ($2::timestamptz IS NULL OR created_at >= $2)
@@ -228,16 +240,18 @@ func (r *postgresRepository) Search(ctx context.Context, tenantID string, filter
 			AND ($5::text = '' OR cashier_name_snapshot ILIKE '%' || $5 || '%' OR created_by ILIKE '%' || $5 || '%')
 			AND ($6::bigint IS NULL OR grand_total_minor >= $6)
 			AND ($7::bigint IS NULL OR grand_total_minor <= $7)
+			AND ($10::bool OR EXISTS(SELECT 1 FROM stores st WHERE st.tenant_id=orders.tenant_id AND st.id=orders.store_id
+				AND (st.is_default OR EXISTS(SELECT 1 FROM store_access sa WHERE sa.tenant_id=st.tenant_id AND sa.store_id=st.id AND sa.user_id=$11))))
 			ORDER BY created_at DESC, id DESC LIMIT $8 OFFSET $9`,
 			tenantID, from, until, filter.OrderNumber, filter.Cashier,
-			filter.MinAmountMinor, filter.MaxAmountMinor, filter.Limit+1, filter.Offset)
+			filter.MinAmountMinor, filter.MaxAmountMinor, filter.Limit+1, filter.Offset, canViewAll, actorID)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var sale SaleSummary
-			if err := rows.Scan(&sale.ID, &sale.OrderNumber, &sale.CashierID, &sale.CashierName,
+			if err := rows.Scan(&sale.ID, &sale.StoreID, &sale.StoreName, &sale.OrderNumber, &sale.CashierID, &sale.CashierName,
 				&sale.CurrencyCode, &sale.GrandTotalMinor, &sale.CreatedAt); err != nil {
 				return err
 			}
@@ -254,11 +268,11 @@ func (r *postgresRepository) Search(ctx context.Context, tenantID string, filter
 
 func loadSale(ctx context.Context, tx pgx.Tx, tenantID, orderID string) (*Sale, error) {
 	sale := &Sale{Items: []SaleItem{}}
-	err := tx.QueryRow(ctx, `SELECT o.id, o.order_number, o.created_by, o.cashier_name_snapshot, o.status, o.currency_code,
+	err := tx.QueryRow(ctx, `SELECT o.id, o.store_id, o.store_name_snapshot, o.order_number, o.created_by, o.cashier_name_snapshot, o.status, o.currency_code,
 		o.subtotal_minor, o.grand_total_minor, p.cash_received_minor, p.change_minor, o.created_at
 		FROM orders o JOIN payments p ON p.tenant_id=o.tenant_id AND p.order_id=o.id
 		WHERE o.tenant_id=$1 AND o.id=$2`, tenantID, orderID).
-		Scan(&sale.ID, &sale.OrderNumber, &sale.CashierID, &sale.CashierName, &sale.Status, &sale.CurrencyCode, &sale.SubtotalMinor,
+		Scan(&sale.ID, &sale.StoreID, &sale.StoreName, &sale.OrderNumber, &sale.CashierID, &sale.CashierName, &sale.Status, &sale.CurrencyCode, &sale.SubtotalMinor,
 			&sale.GrandTotalMinor, &sale.CashReceivedMinor, &sale.ChangeMinor, &sale.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound

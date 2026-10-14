@@ -14,6 +14,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
+	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/migrations"
 	"candella-ecosystem/backend/pkg/id"
 )
@@ -252,5 +253,47 @@ func TestCashCheckoutPostgres(t *testing.T) {
 	second, _, err := svc.Search(ctx, tenantA, SalesFilter{Limit: 1, Offset: 1})
 	if err != nil || len(second) != 1 || second[0].ID == list[0].ID {
 		t.Fatalf("second page=%+v err=%v", second, err)
+	}
+	branchID := id.New(id.Store)
+	mustExec(`INSERT INTO stores (id,tenant_id,name,is_default) VALUES ($1,$2,'Branch',false)`, branchID, tenantA)
+	mustExec(`INSERT INTO stock_levels (id,tenant_id,store_id,variant_id,quantity) VALUES ($1,$2,$3,$4,2)`, id.New(id.StockLevel), tenantA, branchID, variantA)
+	mustExec(`INSERT INTO tenant_memberships (id,tenant_id,user_id,role,status) VALUES ($1,$2,$3,'member','active')`, id.New(id.TenantMembership), tenantA, userID)
+	branchCtx := store.WithSelection(ctx, branchID, userID, "member")
+	branchInput := CheckoutInput{StoreID: branchID, IdempotencyKey: "branch-sale-001", CashReceivedMinor: 1000, Items: []CartItem{{VariantID: variantA, Quantity: 1}}}
+	if _, _, err := svc.Checkout(branchCtx, tenantA, userID, "Cashier", branchInput); err != store.ErrAccess {
+		t.Fatalf("unassigned cashier sold branch stock: %v", err)
+	}
+	mustExec(`INSERT INTO store_access (tenant_id,store_id,user_id) VALUES ($1,$2,$3)`, tenantA, branchID, userID)
+	branchSale, created, err := svc.Checkout(branchCtx, tenantA, userID, "Cashier", branchInput)
+	if err != nil || !created || branchSale.StoreID != branchID || branchSale.StoreName != "Branch" {
+		t.Fatalf("branch sale=%+v created=%t err=%v", branchSale, created, err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT quantity FROM stock_levels WHERE tenant_id=$1 AND store_id=$2 AND variant_id=$3`, tenantA, branchID, variantA).Scan(&stock); err != nil || stock != 1 {
+		t.Fatalf("branch stock=%d err=%v", stock, err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT quantity FROM stock_levels WHERE tenant_id=$1 AND store_id=$2 AND variant_id=$3`, tenantA, storeA, variantA).Scan(&stock); err != nil || stock != 3 {
+		t.Fatalf("main stock changed=%d err=%v", stock, err)
+	}
+	mustExec(`UPDATE stores SET name='Renamed branch' WHERE id=$1`, branchID)
+	branchReceipt, err := svc.Receipt(ctx, tenantA, branchSale.ID)
+	if err != nil || branchReceipt.StoreName != "Branch" {
+		t.Fatalf("store receipt snapshot=%+v err=%v", branchReceipt, err)
+	}
+	if _, _, err := svc.Checkout(store.WithSelection(ctx, storeB, userID, "member"), tenantA, userID, "Cashier", CheckoutInput{StoreID: storeB, IdempotencyKey: "wrong-store-001", CashReceivedMinor: 1000, Items: []CartItem{{VariantID: variantA, Quantity: 1}}}); err != store.ErrNotFound {
+		t.Fatalf("cross-tenant store sale: %v", err)
+	}
+	mustExec(`DELETE FROM store_access WHERE tenant_id=$1 AND store_id=$2 AND user_id=$3`, tenantA, branchID, userID)
+	memberCtx := store.WithActor(ctx, userID, "member")
+	if _, err := svc.Receipt(memberCtx, tenantA, branchSale.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("revoked cashier read branch receipt: %v", err)
+	}
+	memberSales, _, err := svc.Search(memberCtx, tenantA, SalesFilter{Limit: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range memberSales {
+		if item.ID == branchSale.ID {
+			t.Fatal("revoked cashier saw branch sale in history")
+		}
 	}
 }

@@ -65,7 +65,7 @@ type ImportService struct{ repo ImportRepository }
 
 func NewImportService(repo ImportRepository) *ImportService { return &ImportService{repo: repo} }
 
-func (s *ImportService) Preview(ctx context.Context, tenantID, mode string, rows []ImportRow) (*ImportPreview, error) {
+func (s *ImportService) Preview(ctx context.Context, tenantID, mode, storeID string, rows []ImportRow) (*ImportPreview, error) {
 	if mode != "create" && mode != "update" {
 		return nil, ErrImportMode
 	}
@@ -76,18 +76,18 @@ func (s *ImportService) Preview(ctx context.Context, tenantID, mode string, rows
 	if err != nil {
 		return nil, err
 	}
-	preview.Hash = importHash(mode, rows)
+	preview.Hash = importHash(mode, storeID, rows)
 	return preview, nil
 }
 
-func (s *ImportService) Confirm(ctx context.Context, tenantID, userID, mode, key, previewHash string, rows []ImportRow) (*ImportResult, error) {
+func (s *ImportService) Confirm(ctx context.Context, tenantID, userID, mode, storeID, key, previewHash string, rows []ImportRow) (*ImportResult, error) {
 	if mode != "create" && mode != "update" {
 		return nil, ErrImportMode
 	}
 	if len(rows) == 0 || len(rows) > maxImportRows {
 		return nil, ErrImportFile
 	}
-	if len(key) < 8 || len(key) > 100 || previewHash == "" || previewHash != importHash(mode, rows) {
+	if len(key) < 8 || len(key) > 100 || previewHash == "" || previewHash != importHash(mode, storeID, rows) {
 		return nil, ErrImportChanged
 	}
 	return s.repo.ConfirmImport(ctx, tenantID, userID, mode, key, previewHash, rows)
@@ -97,11 +97,12 @@ func (s *ImportService) Export(ctx context.Context, tenantID string) ([][]string
 	return s.repo.ExportProducts(ctx, tenantID)
 }
 
-func importHash(mode string, rows []ImportRow) string {
+func importHash(mode, storeID string, rows []ImportRow) string {
 	data, _ := json.Marshal(struct {
-		Mode string
-		Rows []ImportRow
-	}{mode, rows})
+		Mode    string
+		StoreID string
+		Rows    []ImportRow
+	}{mode, storeID, rows})
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
 }

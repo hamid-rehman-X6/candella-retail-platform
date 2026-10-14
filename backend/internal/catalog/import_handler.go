@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"encoding/csv"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -9,6 +10,7 @@ import (
 
 	"candella-ecosystem/backend/internal/audit"
 	"candella-ecosystem/backend/internal/auth"
+	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/internal/tenant"
 	"candella-ecosystem/backend/pkg/response"
 )
@@ -24,6 +26,11 @@ func NewImportHandler(svc *ImportService, auditor *audit.Recorder, log *slog.Log
 }
 
 func (h *ImportHandler) writeErr(w http.ResponseWriter, err error) {
+	var storeErr *store.Error
+	if errors.As(err, &storeErr) {
+		response.Error(w, storeErr.Status, storeErr.Code, storeErr.Message)
+		return
+	}
 	if typed, ok := err.(*Error); ok {
 		response.Error(w, typed.Status, typed.Code, typed.Message)
 		return
@@ -59,7 +66,7 @@ func readImportRequest(w http.ResponseWriter, r *http.Request) (string, []Import
 }
 
 func (h *ImportHandler) Preview(w http.ResponseWriter, r *http.Request) {
-	tenantID, _, editable := importScope(r)
+	tenantID, userID, editable := importScope(r)
 	if !editable {
 		response.Error(w, http.StatusForbidden, "insufficient_role", "Ask a workspace owner or admin to import products.")
 		return
@@ -69,7 +76,14 @@ func (h *ImportHandler) Preview(w http.ResponseWriter, r *http.Request) {
 		h.writeErr(w, err)
 		return
 	}
-	preview, err := h.svc.Preview(r.Context(), tenantID, mode, rows)
+	storeID := r.FormValue("storeId")
+	if storeID == "" {
+		h.writeErr(w, store.ErrSelection)
+		return
+	}
+	t, _ := tenant.FromContext(r.Context())
+	r = r.WithContext(store.WithSelection(r.Context(), storeID, userID, t.Role))
+	preview, err := h.svc.Preview(r.Context(), tenantID, mode, storeID, rows)
 	if err != nil {
 		h.writeErr(w, err)
 		return
@@ -88,7 +102,14 @@ func (h *ImportHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 		h.writeErr(w, err)
 		return
 	}
-	result, err := h.svc.Confirm(r.Context(), tenantID, userID, mode, r.FormValue("idempotencyKey"), r.FormValue("previewHash"), rows)
+	storeID := r.FormValue("storeId")
+	if storeID == "" {
+		h.writeErr(w, store.ErrSelection)
+		return
+	}
+	t, _ := tenant.FromContext(r.Context())
+	r = r.WithContext(store.WithSelection(r.Context(), storeID, userID, t.Role))
+	result, err := h.svc.Confirm(r.Context(), tenantID, userID, mode, storeID, r.FormValue("idempotencyKey"), r.FormValue("previewHash"), rows)
 	if err != nil {
 		h.writeErr(w, err)
 		return
@@ -120,11 +141,18 @@ func (h *ImportHandler) Template(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ImportHandler) Export(w http.ResponseWriter, r *http.Request) {
-	tenantID, _, editable := importScope(r)
+	tenantID, userID, editable := importScope(r)
 	if !editable {
 		response.Error(w, http.StatusForbidden, "insufficient_role", "Ask a workspace owner or admin to export products.")
 		return
 	}
+	storeID := r.URL.Query().Get("storeId")
+	if storeID == "" {
+		h.writeErr(w, store.ErrSelection)
+		return
+	}
+	t, _ := tenant.FromContext(r.Context())
+	r = r.WithContext(store.WithSelection(r.Context(), storeID, userID, t.Role))
 	rows, err := h.svc.Export(r.Context(), tenantID)
 	if err != nil {
 		h.writeErr(w, err)

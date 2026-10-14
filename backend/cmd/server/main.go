@@ -24,6 +24,7 @@ import (
 	appmiddleware "candella-ecosystem/backend/internal/middleware"
 	"candella-ecosystem/backend/internal/platform"
 	"candella-ecosystem/backend/internal/sales"
+	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/internal/workspace"
 	"candella-ecosystem/backend/pkg/config"
 	"candella-ecosystem/backend/pkg/crypto"
@@ -84,6 +85,7 @@ func main() {
 		workspace.NewStaffPostgresRepository(pool), mail, cfg.AppBaseURL), auditor)
 	catalogHandler := catalog.NewHandler(catalog.NewService(catalog.NewPostgresRepository(pool)), auditor, log)
 	importHandler := catalog.NewImportHandler(catalog.NewImportService(catalog.NewImportPostgresRepository(pool)), auditor, log)
+	storeHandler := store.NewHandler(pool, auditor, log)
 	salesHandler := sales.NewHandler(sales.NewService(sales.NewPostgresRepository(pool)), auditor, log)
 
 	// The platform console reads across every tenant. It will move to its own
@@ -117,6 +119,7 @@ func main() {
 		workspace.StaffRoutes(api, staffHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		catalog.Routes(api, catalogHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		catalog.ImportRoutes(api, importHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
+		store.Routes(api, storeHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		sales.Routes(api, salesHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		platform.Routes(api, platformHandler, authHandler.RequireAuth)
 	})

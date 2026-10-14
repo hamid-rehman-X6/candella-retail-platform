@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Archive, Pencil, Plus, Search, Truck } from "lucide-react";
 import { useApp } from "@/components/app/app-context";
+import { useStoreSelection } from "@/lib/use-store-selection";
 import {
   formatMoney,
   listStock,
@@ -46,6 +47,7 @@ export default function SuppliersPage() {
 
 function SuppliersWorkspacePage() {
   const { current } = useApp();
+  const { storeId } = useStoreSelection(current.id);
   const editable = current.role === "owner" || current.role === "admin";
   const [search, setSearch] = useState("");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -123,12 +125,17 @@ function SuppliersWorkspacePage() {
   }, [selectedId, refreshSources]);
 
   useEffect(() => {
-    if (!selectedId || selectedStatus !== "active" || !variantSearch.trim())
+    if (
+      !storeId ||
+      !selectedId ||
+      selectedStatus !== "active" ||
+      !variantSearch.trim()
+    )
       return;
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const result = await listStock(current.id, variantSearch);
+        const result = await listStock(current.id, storeId, variantSearch);
         if (!cancelled) setVariants(result.items);
       } catch (e) {
         if (!cancelled)
@@ -141,7 +148,7 @@ function SuppliersWorkspacePage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [current.id, selectedId, selectedStatus, variantSearch]);
+  }, [current.id, storeId, selectedId, selectedStatus, variantSearch]);
 
   function clearSourceForm() {
     setVariantId("");

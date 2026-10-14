@@ -48,12 +48,15 @@ func TestImportCSVValidationAndMoney(t *testing.T) {
 
 func TestImportHashBindsModeAndRows(t *testing.T) {
 	rows := []ImportRow{{ProductName: "Soap", SellingPrice: "150", OpeningQuantity: "4"}}
-	original := importHash("create", rows)
-	if original == importHash("update", rows) {
+	original := importHash("create", "str_AAAAAAAA1111", rows)
+	if original == importHash("update", "str_AAAAAAAA1111", rows) {
 		t.Fatal("mode did not affect import hash")
 	}
 	rows[0].OpeningQuantity = "5"
-	if original == importHash("create", rows) {
+	if original == importHash("create", "str_AAAAAAAA1111", rows) {
 		t.Fatal("changed opening stock did not affect import hash")
+	}
+	if original == importHash("create", "str_BBBBBBBB2222", []ImportRow{{ProductName: "Soap", SellingPrice: "150", OpeningQuantity: "4"}}) {
+		t.Fatal("store did not affect import hash")
 	}
 }

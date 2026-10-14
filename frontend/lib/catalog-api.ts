@@ -39,6 +39,7 @@ export type CatalogSummary = {
 
 export type Movement = {
   id: string;
+  storeId: string;
   orderId: string | null;
   variantId: string;
   productName: string;
@@ -65,18 +66,27 @@ function query(search: string, offset = 0) {
   return params;
 }
 
-export const listProducts = (tenantId: string, search = "", offset = 0) =>
+export const listProducts = (
+  tenantId: string,
+  storeId: string,
+  search = "",
+  offset = 0,
+) =>
   apiGet<{ products: Product[] }>(
-    `/products?${query(search, offset)}`,
+    `/products?${query(search, offset)}&storeId=${encodeURIComponent(storeId)}`,
     tenantId,
   );
 
-export const getCatalogSummary = (tenantId: string) =>
-  apiGet<{ summary: CatalogSummary }>("/catalog/summary", tenantId);
+export const getCatalogSummary = (tenantId: string, storeId: string) =>
+  apiGet<{ summary: CatalogSummary }>(
+    `/catalog/summary?storeId=${encodeURIComponent(storeId)}`,
+    tenantId,
+  );
 
 export const createProduct = (
   tenantId: string,
   input: {
+    storeId?: string;
     name: string;
     description: string;
     variant: VariantInput;
@@ -117,15 +127,20 @@ export const updateVariant = (
     tenantId,
   });
 
-export const listStock = (tenantId: string, search = "", offset = 0) =>
+export const listStock = (
+  tenantId: string,
+  storeId: string,
+  search = "",
+  offset = 0,
+) =>
   apiGet<{ items: StockItem[]; storeId: string }>(
-    `/inventory?${query(search, offset)}`,
+    `/inventory?${query(search, offset)}&storeId=${encodeURIComponent(storeId)}`,
     tenantId,
   );
 
-export const listMovements = (tenantId: string, offset = 0) =>
+export const listMovements = (tenantId: string, storeId: string, offset = 0) =>
   apiGet<{ movements: Movement[] }>(
-    `/inventory/movements?limit=50&offset=${offset}`,
+    `/inventory/movements?limit=50&offset=${offset}&storeId=${encodeURIComponent(storeId)}`,
     tenantId,
   );
 
@@ -134,6 +149,7 @@ export const recordMovement = (
   input:
     | {
         idempotencyKey: string;
+        storeId: string;
         variantId: string;
         kind: "receive";
         quantity: number;
@@ -141,6 +157,7 @@ export const recordMovement = (
       }
     | {
         idempotencyKey: string;
+        storeId: string;
         variantId: string;
         kind: "count";
         countedQuantity: number;

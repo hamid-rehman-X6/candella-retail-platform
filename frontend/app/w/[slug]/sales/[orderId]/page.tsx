@@ -74,6 +74,7 @@ export default function ReceiptPage() {
               Cash receipt
             </p>
             <h1 className="mt-2 text-2xl font-semibold">{current.name}</h1>
+            <p className="mt-1 text-sm">Store: {sale.storeName}</p>
             <p className="mt-2 font-mono text-sm">{sale.orderNumber}</p>
             <p className="mt-1 text-xs text-muted print:text-gray-600">
               {new Intl.DateTimeFormat(undefined, {
