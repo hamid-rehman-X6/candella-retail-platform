@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
@@ -51,6 +52,28 @@ func decodeCheckout(r *http.Request, dst *CheckoutInput) error {
 	return nil
 }
 
+func parseSalesInt(raw string, fallback int) (int, error) {
+	if raw == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		return 0, ErrInvalidFilter
+	}
+	return n, nil
+}
+
+func parseOptionalAmount(raw string) (*int64, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	n, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return nil, ErrInvalidFilter
+	}
+	return &n, nil
+}
+
 func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 	t, _ := tenant.FromContext(r.Context())
 	u, _ := auth.UserFromContext(r.Context())
@@ -63,7 +86,7 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 		h.writeErr(w, err)
 		return
 	}
-	sale, created, err := h.svc.Checkout(r.Context(), t.TenantID, u.ID, in)
+	sale, created, err := h.svc.Checkout(r.Context(), t.TenantID, u.ID, u.FullName, in)
 	if err != nil {
 		h.writeErr(w, err)
 		return
@@ -75,6 +98,40 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(w, http.StatusOK, map[string]any{"sale": sale})
+}
+
+func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
+	t, _ := tenant.FromContext(r.Context())
+	if !canCheckout(t.Role) {
+		response.Error(w, http.StatusForbidden, "insufficient_role", "Ask a workspace owner to grant you sales access.")
+		return
+	}
+	query := r.URL.Query()
+	filter := SalesFilter{
+		FromDate: query.Get("fromDate"), ToDate: query.Get("toDate"),
+		OrderNumber: query.Get("orderNumber"), Cashier: query.Get("cashier"),
+	}
+	var err error
+	filter.Limit, err = parseSalesInt(query.Get("limit"), 50)
+	if err == nil {
+		filter.Offset, err = parseSalesInt(query.Get("offset"), 0)
+	}
+	if err == nil {
+		filter.MinAmountMinor, err = parseOptionalAmount(query.Get("minAmountMinor"))
+	}
+	if err == nil {
+		filter.MaxAmountMinor, err = parseOptionalAmount(query.Get("maxAmountMinor"))
+	}
+	if err != nil {
+		h.writeErr(w, ErrInvalidFilter)
+		return
+	}
+	list, hasMore, err := h.svc.Search(r.Context(), t.TenantID, filter)
+	if err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"sales": list, "hasMore": hasMore})
 }
 
 func (h *Handler) Receipt(w http.ResponseWriter, r *http.Request) {

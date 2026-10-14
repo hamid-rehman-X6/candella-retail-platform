@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -23,16 +24,16 @@ func NewPostgresRepository(db *pgxpool.Pool) Repository { return &postgresReposi
 
 // Currency comes from the authenticated workspace. All business rows are then
 // accessed as candella_catalog so tenant RLS applies even with a superuser pool.
-func withSalesTx(ctx context.Context, db *pgxpool.Pool, tenantID string, fn func(pgx.Tx, string) error) error {
+func withSalesTx(ctx context.Context, db *pgxpool.Pool, tenantID string, fn func(pgx.Tx, string, string) error) error {
 	return database.WithTenantTx(ctx, db, tenantID, func(tx pgx.Tx) error {
-		var currency string
-		if err := tx.QueryRow(ctx, `SELECT currency_code FROM tenants WHERE id=$1`, tenantID).Scan(&currency); err != nil {
+		var currency, timezone string
+		if err := tx.QueryRow(ctx, `SELECT currency_code, timezone FROM tenants WHERE id=$1`, tenantID).Scan(&currency, &timezone); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `SET LOCAL ROLE candella_catalog`); err != nil {
 			return err
 		}
-		return fn(tx, currency)
+		return fn(tx, currency, timezone)
 	})
 }
 
@@ -46,11 +47,11 @@ func requestHash(userID string, in CheckoutInput) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (r *postgresRepository) Create(ctx context.Context, tenantID, userID string, in CheckoutInput) (*Sale, bool, error) {
+func (r *postgresRepository) Create(ctx context.Context, tenantID, userID, cashierName string, in CheckoutInput) (*Sale, bool, error) {
 	var sale *Sale
 	created := false
 	hash := requestHash(userID, in)
-	err := withSalesTx(ctx, r.db, tenantID, func(tx pgx.Tx, currency string) error {
+	err := withSalesTx(ctx, r.db, tenantID, func(tx pgx.Tx, currency, _ string) error {
 		// Serialize requests with the same key before checking or touching stock.
 		// A hash collision only makes unrelated checkouts wait; uniqueness still
 		// uses the full tenant ID and key in the orders table.
@@ -130,9 +131,9 @@ func (r *postgresRepository) Create(ctx context.Context, tenantID, userID string
 		orderNumber := fmt.Sprintf("POS-%06d", sequence)
 		if _, err := tx.Exec(ctx, `INSERT INTO orders
 			(id, tenant_id, store_id, order_number, idempotency_key, request_hash,
-			 currency_code, subtotal_minor, grand_total_minor, created_by)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, orderID, tenantID, storeID, orderNumber,
-			in.IdempotencyKey, hash, currency, total, total, userID); err != nil {
+			 currency_code, subtotal_minor, grand_total_minor, created_by, cashier_name_snapshot)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, orderID, tenantID, storeID, orderNumber,
+			in.IdempotencyKey, hash, currency, total, total, userID, cashierName); err != nil {
 			return err
 		}
 		for index, item := range items {
@@ -186,7 +187,7 @@ func (r *postgresRepository) Create(ctx context.Context, tenantID, userID string
 
 func (r *postgresRepository) Find(ctx context.Context, tenantID, orderID string) (*Sale, error) {
 	var sale *Sale
-	err := withSalesTx(ctx, r.db, tenantID, func(tx pgx.Tx, _ string) error {
+	err := withSalesTx(ctx, r.db, tenantID, func(tx pgx.Tx, _, _ string) error {
 		var err error
 		sale, err = loadSale(ctx, tx, tenantID, orderID)
 		return err
@@ -194,13 +195,70 @@ func (r *postgresRepository) Find(ctx context.Context, tenantID, orderID string)
 	return sale, err
 }
 
+func (r *postgresRepository) Search(ctx context.Context, tenantID string, filter SalesFilter) ([]SaleSummary, bool, error) {
+	results := []SaleSummary{}
+	hasMore := false
+	err := withSalesTx(ctx, r.db, tenantID, func(tx pgx.Tx, _, timezone string) error {
+		location, err := time.LoadLocation(timezone)
+		if err != nil {
+			return fmt.Errorf("workspace timezone %q: %w", timezone, err)
+		}
+		var from, until *time.Time
+		if filter.FromDate != "" {
+			day, err := time.ParseInLocation("2006-01-02", filter.FromDate, location)
+			if err != nil {
+				return ErrInvalidFilter
+			}
+			from = &day
+		}
+		if filter.ToDate != "" {
+			day, err := time.ParseInLocation("2006-01-02", filter.ToDate, location)
+			if err != nil {
+				return ErrInvalidFilter
+			}
+			next := day.AddDate(0, 0, 1)
+			until = &next
+		}
+		rows, err := tx.Query(ctx, `SELECT id, order_number, created_by, cashier_name_snapshot,
+			currency_code, grand_total_minor, created_at FROM orders
+			WHERE tenant_id=$1 AND status='completed'
+			AND ($2::timestamptz IS NULL OR created_at >= $2)
+			AND ($3::timestamptz IS NULL OR created_at < $3)
+			AND ($4::text = '' OR order_number ILIKE '%' || $4 || '%')
+			AND ($5::text = '' OR cashier_name_snapshot ILIKE '%' || $5 || '%' OR created_by ILIKE '%' || $5 || '%')
+			AND ($6::bigint IS NULL OR grand_total_minor >= $6)
+			AND ($7::bigint IS NULL OR grand_total_minor <= $7)
+			ORDER BY created_at DESC, id DESC LIMIT $8 OFFSET $9`,
+			tenantID, from, until, filter.OrderNumber, filter.Cashier,
+			filter.MinAmountMinor, filter.MaxAmountMinor, filter.Limit+1, filter.Offset)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var sale SaleSummary
+			if err := rows.Scan(&sale.ID, &sale.OrderNumber, &sale.CashierID, &sale.CashierName,
+				&sale.CurrencyCode, &sale.GrandTotalMinor, &sale.CreatedAt); err != nil {
+				return err
+			}
+			if len(results) == filter.Limit {
+				hasMore = true
+				break
+			}
+			results = append(results, sale)
+		}
+		return rows.Err()
+	})
+	return results, hasMore, err
+}
+
 func loadSale(ctx context.Context, tx pgx.Tx, tenantID, orderID string) (*Sale, error) {
 	sale := &Sale{Items: []SaleItem{}}
-	err := tx.QueryRow(ctx, `SELECT o.id, o.order_number, o.status, o.currency_code,
+	err := tx.QueryRow(ctx, `SELECT o.id, o.order_number, o.created_by, o.cashier_name_snapshot, o.status, o.currency_code,
 		o.subtotal_minor, o.grand_total_minor, p.cash_received_minor, p.change_minor, o.created_at
 		FROM orders o JOIN payments p ON p.tenant_id=o.tenant_id AND p.order_id=o.id
 		WHERE o.tenant_id=$1 AND o.id=$2`, tenantID, orderID).
-		Scan(&sale.ID, &sale.OrderNumber, &sale.Status, &sale.CurrencyCode, &sale.SubtotalMinor,
+		Scan(&sale.ID, &sale.OrderNumber, &sale.CashierID, &sale.CashierName, &sale.Status, &sale.CurrencyCode, &sale.SubtotalMinor,
 			&sale.GrandTotalMinor, &sale.CashReceivedMinor, &sale.ChangeMinor, &sale.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound

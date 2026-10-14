@@ -13,6 +13,8 @@ export type SaleItem = {
 export type Sale = {
   id: string;
   orderNumber: string;
+  cashierId: string;
+  cashierName: string;
   status: "completed";
   currencyCode: string;
   items: SaleItem[];
@@ -21,6 +23,39 @@ export type Sale = {
   cashReceivedMinor: number;
   changeMinor: number;
   createdAt: string;
+};
+
+export type SaleSummary = Pick<
+  Sale,
+  | "id"
+  | "orderNumber"
+  | "cashierId"
+  | "cashierName"
+  | "currencyCode"
+  | "grandTotalMinor"
+  | "createdAt"
+>;
+
+export type SalesFilters = {
+  fromDate?: string;
+  toDate?: string;
+  orderNumber?: string;
+  cashier?: string;
+  minAmountMinor?: number;
+  maxAmountMinor?: number;
+  limit?: number;
+  offset?: number;
+};
+
+export const listSales = (tenantId: string, filters: SalesFilters) => {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
+  return apiGet<{ sales: SaleSummary[]; hasMore: boolean }>(
+    `/sales?${query.toString()}`,
+    tenantId,
+  );
 };
 
 export type CheckoutInput = {
