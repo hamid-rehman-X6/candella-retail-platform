@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
 import { useStoreSelection } from "@/lib/use-store-selection";
+import { Select } from "@/components/ui/select";
 import {
   formatMoney,
   listStock,
@@ -233,23 +234,22 @@ export default function SalesPage() {
       )}
       <label className="block max-w-xs text-sm font-medium">
         Selling from
-        <select
-          aria-label="Selling store"
+        <Select
+          ariaLabel="Selling store"
           className={`${field} mt-2`}
           value={storeId}
-          onChange={(event) => changeStore(event.target.value)}
+          onValueChange={changeStore}
           disabled={busy}
-        >
-          {!storeId && <option value="">Select a store</option>}
-          {stores
-            .filter((store) => store.accessible)
-            .map((store) => (
-              <option key={store.id} value={store.id}>
-                {store.name}
-                {store.isDefault ? " (default)" : ""}
-              </option>
-            ))}
-        </select>
+          options={[
+            ...(!storeId ? [{ value: "", label: "Select a store" }] : []),
+            ...stores
+              .filter((store) => store.accessible)
+              .map((store) => ({
+                value: store.id,
+                label: `${store.name}${store.isDefault ? " (default)" : ""}`,
+              })),
+          ]}
+        />
         <span className="mt-1 block text-xs text-muted">
           Cart clears when you switch stores so stock is never mixed.
         </span>

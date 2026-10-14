@@ -1,8 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Search } from "lucide-react";
 import { industries } from "@/lib/industries";
+import { Select } from "@/components/ui/select";
 
 const statuses = ["active", "trialing", "suspended", "cancelled"];
 
@@ -24,6 +26,8 @@ export function TenantFilters({
   industry: string;
 }) {
   const router = useRouter();
+  const [selectedStatus, setSelectedStatus] = useState(status);
+  const [selectedIndustry, setSelectedIndustry] = useState(industry);
 
   return (
     <form
@@ -41,23 +45,34 @@ export function TenantFilters({
         />
       </div>
 
-      <select name="status" defaultValue={status} className={field}>
-        <option value="">Any status</option>
-        {statuses.map((s) => (
-          <option key={s} value={s}>
-            {s.charAt(0).toUpperCase() + s.slice(1)}
-          </option>
-        ))}
-      </select>
+      <Select
+        ariaLabel="Tenant status"
+        name="status"
+        tone="rose"
+        value={selectedStatus}
+        onValueChange={setSelectedStatus}
+        className={field}
+        options={[
+          { value: "", label: "Any status" },
+          ...statuses.map((s) => ({
+            value: s,
+            label: s.charAt(0).toUpperCase() + s.slice(1),
+          })),
+        ]}
+      />
 
-      <select name="industry" defaultValue={industry} className={field}>
-        <option value="">Any industry</option>
-        {industries.map((i) => (
-          <option key={i.value} value={i.value}>
-            {i.label}
-          </option>
-        ))}
-      </select>
+      <Select
+        ariaLabel="Tenant industry"
+        name="industry"
+        tone="rose"
+        value={selectedIndustry}
+        onValueChange={setSelectedIndustry}
+        className={field}
+        options={[
+          { value: "", label: "Any industry" },
+          ...industries.map((i) => ({ value: i.value, label: i.label })),
+        ]}
+      />
 
       <button
         type="submit"

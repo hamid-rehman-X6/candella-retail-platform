@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
+
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app/app-context";
@@ -139,21 +141,15 @@ export default function StaffPage() {
         </label>
         <label className="text-sm font-medium">
           Role
-          <select
+          <Select
+            ariaLabel="Role"
             value={role}
-            onChange={(event) =>
-              setRole(event.target.value as StaffMember["role"])
-            }
+            onValueChange={(value) => setRole(value as StaffMember["role"])}
             className="mt-2 w-full rounded-xl border border-line bg-canvas px-3 py-2.5 outline-none focus:border-accent"
-          >
-            {roles
+            options={roles
               .filter((item) => current.role === "owner" || item !== "owner")
-              .map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-          </select>
+              .map((item) => ({ value: item, label: item }))}
+          />
         </label>
         <button
           disabled={busy}
@@ -191,33 +187,28 @@ export default function StaffPage() {
                       {member.email} · {member.status}
                     </p>
                   </div>
-                  <select
-                    aria-label={`Role for ${member.fullName}`}
+                  <Select
+                    ariaLabel={`Role for ${member.fullName}`}
                     value={member.role}
                     disabled={busy || !canEdit || member.status !== "active"}
-                    onChange={(event) =>
+                    onValueChange={(value) =>
                       void action(
                         () =>
                           changeStaffRole(
                             current.id,
                             member.userId,
-                            event.target.value as StaffMember["role"],
+                            value as StaffMember["role"],
                           ),
                         "Role updated.",
                       )
                     }
                     className="rounded-lg border border-line bg-canvas px-3 py-2 text-sm disabled:opacity-50"
-                  >
-                    {roles
+                    options={roles
                       .filter(
                         (item) => current.role === "owner" || item !== "owner",
                       )
-                      .map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                  </select>
+                      .map((item) => ({ value: item, label: item }))}
+                  />
                   <button
                     type="button"
                     disabled={busy || !canEdit || member.status !== "active"}

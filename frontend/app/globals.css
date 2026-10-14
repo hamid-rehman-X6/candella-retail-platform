@@ -134,6 +134,33 @@ body {
   overflow-x: hidden;
 }
 
+/* Interactive controls should signal that they can be clicked. */
+a[href]:not([aria-disabled="true"]),
+button:not(:disabled),
+summary,
+[role="button"]:not([aria-disabled="true"]),
+[role="option"]:not([aria-disabled="true"]),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+input[type="file"]:not(:disabled) {
+  cursor: pointer;
+}
+
+label[for],
+label:has(input[type="checkbox"]:not(:disabled)),
+label:has(input[type="radio"]:not(:disabled)) {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+a[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 ::selection {
   background: color-mix(in oklab, var(--color-accent) 35%, transparent);
   color: #fff;

@@ -10,6 +10,7 @@ import {
 import { Archive, Pencil, Plus, Search, Truck } from "lucide-react";
 import { useApp } from "@/components/app/app-context";
 import { useStoreSelection } from "@/lib/use-store-selection";
+import { Select } from "@/components/ui/select";
 import {
   formatMoney,
   listStock,
@@ -481,41 +482,28 @@ function SuppliersWorkspacePage() {
                     />
                   </label>
                   {variantSearch && (
-                    <select
+                    <Select
                       className={field}
                       value={variantId}
-                      onChange={(e) => setVariantId(e.target.value)}
-                      aria-label="Choose product variant"
-                      required
-                    >
-                      <option value="">Choose a matching variant</option>
-                      {variantId &&
-                        !variants.some(
-                          (item) => item.variantId === variantId,
-                        ) &&
-                        sources.find(
-                          (item) => item.variantId === variantId,
-                        ) && (
-                          <option value={variantId}>
-                            {
-                              sources.find(
-                                (item) => item.variantId === variantId,
-                              )?.productName
-                            }{" "}
-                            ·{" "}
-                            {
-                              sources.find(
-                                (item) => item.variantId === variantId,
-                              )?.variantName
-                            }
-                          </option>
-                        )}
-                      {variants.map((item) => (
-                        <option key={item.variantId} value={item.variantId}>
-                          {item.productName} · {item.variantName} · {item.sku}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={setVariantId}
+                      ariaLabel="Choose product variant"
+                      options={[
+                        { value: "", label: "Choose a matching variant" },
+                        ...(variantId &&
+                        !variants.some((item) => item.variantId === variantId)
+                          ? sources
+                              .filter((item) => item.variantId === variantId)
+                              .map((item) => ({
+                                value: item.variantId,
+                                label: `${item.productName} · ${item.variantName}`,
+                              }))
+                          : []),
+                        ...variants.map((item) => ({
+                          value: item.variantId,
+                          label: `${item.productName} · ${item.variantName} · ${item.sku}`,
+                        })),
+                      ]}
+                    />
                   )}
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="text-sm">

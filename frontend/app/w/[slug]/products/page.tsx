@@ -11,6 +11,7 @@ import {
 import { FileUp, PackagePlus, Plus, Search, X } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
 import { useStoreSelection } from "@/lib/use-store-selection";
+import { Select } from "@/components/ui/select";
 import { toast } from "@/lib/toast";
 import {
   addVariant,
@@ -275,21 +276,21 @@ export default function ProductsPage() {
       </div>
       <label className="block max-w-xs text-sm font-medium">
         Stock shown for
-        <select
-          aria-label="Product stock store"
+        <Select
+          ariaLabel="Product stock store"
           className={`${field} mt-2`}
           value={storeId}
-          onChange={(event) => changeStore(event.target.value)}
-        >
-          {!storeId && <option value="">Select a store</option>}
-          {stores
-            .filter((location) => location.accessible)
-            .map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-              </option>
-            ))}
-        </select>
+          onValueChange={changeStore}
+          options={[
+            ...(!storeId ? [{ value: "", label: "Select a store" }] : []),
+            ...stores
+              .filter((location) => location.accessible)
+              .map((location) => ({
+                value: location.id,
+                label: location.name,
+              })),
+          ]}
+        />
       </label>
       <label className="relative block max-w-xl">
         <span className="sr-only">Search products</span>
@@ -625,21 +626,23 @@ export default function ProductsPage() {
                       <span className="mt-1 block text-xs text-muted">
                         You can receive more stock later from Inventory.
                       </span>
-                      <select
-                        aria-label="Opening stock store"
+                      <Select
+                        ariaLabel="Opening stock store"
                         className={`${field} mt-2`}
                         value={storeId}
-                        onChange={(event) => changeStore(event.target.value)}
-                      >
-                        {!storeId && <option value="">Select a store</option>}
-                        {stores
-                          .filter((location) => location.accessible)
-                          .map((location) => (
-                            <option key={location.id} value={location.id}>
-                              {location.name}
-                            </option>
-                          ))}
-                      </select>
+                        onValueChange={changeStore}
+                        options={[
+                          ...(!storeId
+                            ? [{ value: "", label: "Select a store" }]
+                            : []),
+                          ...stores
+                            .filter((location) => location.accessible)
+                            .map((location) => ({
+                              value: location.id,
+                              label: location.name,
+                            })),
+                        ]}
+                      />
                     </label>
                   )}
                 </>

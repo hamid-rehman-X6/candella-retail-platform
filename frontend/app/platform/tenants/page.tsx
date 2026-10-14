@@ -52,7 +52,12 @@ export default async function PlatformTenantsPage({
         </p>
       </div>
 
-      <TenantFilters search={search} status={status} industry={industry} />
+      <TenantFilters
+        key={JSON.stringify([search, status, industry])}
+        search={search}
+        status={status}
+        industry={industry}
+      />
 
       {tenants.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-800 px-4 py-12 text-center text-sm text-slate-500">
