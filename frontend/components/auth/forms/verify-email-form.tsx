@@ -8,7 +8,12 @@ import { AuthHeader } from "@/components/auth/auth-header";
 import { OtpInput } from "@/components/auth/otp-input";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
-import { verifyEmail, resendVerification, pendingEmail } from "@/lib/auth-api";
+import {
+  verifyEmail,
+  resendVerification,
+  pendingEmail,
+  pendingInvitation,
+} from "@/lib/auth-api";
 import { setSessionUser } from "@/lib/session-store";
 import { useSessionValue } from "@/lib/use-session-value";
 
@@ -38,7 +43,7 @@ export function VerifyEmailForm() {
       setSessionUser(res.user);
       pendingEmail.clear();
       // Verified + signed in — prompt to secure the account with 2FA.
-      router.push("/two-factor/setup");
+      router.push(pendingInvitation.destination("/two-factor/setup"));
     } catch (err) {
       setVerifying(false);
       setCode("");

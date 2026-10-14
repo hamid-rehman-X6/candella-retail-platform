@@ -4,7 +4,11 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { LogoMark } from "@/components/ui/logo";
-import { getMe, mfaToken as mfaTokenStore } from "@/lib/auth-api";
+import {
+  getMe,
+  mfaToken as mfaTokenStore,
+  pendingInvitation,
+} from "@/lib/auth-api";
 import { setSessionUser } from "@/lib/session-store";
 import { authErrorCopy } from "@/lib/auth-errors";
 import { firstName } from "@/lib/user-name";
@@ -67,12 +71,14 @@ export function OAuthCallback({ status, event, reason, mfaChallenge }: Props) {
           toast.success(`Welcome to Candella, ${firstName(user.fullName)}`, {
             description,
           });
-          router.replace("/onboarding?welcome=google");
+          router.replace(
+            pendingInvitation.destination("/onboarding?welcome=google"),
+          );
         } else {
           toast.success(`Welcome back, ${firstName(user.fullName)}`, {
             description,
           });
-          router.replace("/dashboard");
+          router.replace(pendingInvitation.destination("/dashboard"));
         }
       })
       .catch(() => {

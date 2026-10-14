@@ -9,7 +9,12 @@ import { OtpInput } from "@/components/auth/otp-input";
 import { TextField } from "@/components/auth/text-field";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
-import { verifyTwoFactor, verifyBackupCode, mfaToken } from "@/lib/auth-api";
+import {
+  verifyTwoFactor,
+  verifyBackupCode,
+  mfaToken,
+  pendingInvitation,
+} from "@/lib/auth-api";
 import { setSessionUser } from "@/lib/session-store";
 
 export function TwoFactorForm() {
@@ -35,7 +40,7 @@ export function TwoFactorForm() {
       });
       setSessionUser(res.user);
       mfaToken.clear();
-      router.push("/dashboard");
+      router.push(pendingInvitation.destination("/dashboard"));
     } catch (err) {
       setVerifying(false);
       setCode("");
@@ -58,7 +63,7 @@ export function TwoFactorForm() {
       });
       setSessionUser(res.user);
       mfaToken.clear();
-      router.push("/dashboard");
+      router.push(pendingInvitation.destination("/dashboard"));
     } catch (err) {
       setVerifying(false);
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
