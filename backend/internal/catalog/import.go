@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"candella-ecosystem/backend/pkg/money"
 )
 
 const maxImportRows = 5000
@@ -158,16 +160,7 @@ func parseImportCSV(reader io.Reader) ([]ImportRow, error) {
 	return rows, nil
 }
 
-func minorDigitsForCurrency(currency string) int {
-	switch strings.TrimSpace(currency) {
-	case "JPY", "KRW", "VND", "CLP", "PYG", "XOF", "XAF":
-		return 0
-	case "BHD", "JOD", "KWD", "OMR", "TND":
-		return 3
-	default:
-		return 2
-	}
-}
+func minorDigitsForCurrency(currency string) int { return money.MinorDigits(currency) }
 
 func parseImportMoney(raw, currency string) (int64, error) {
 	digits := minorDigitsForCurrency(currency)

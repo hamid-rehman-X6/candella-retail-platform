@@ -288,9 +288,12 @@ func loadSale(ctx context.Context, tx pgx.Tx, tenantID, orderID string) (*Sale, 
 	if err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(ctx, `SELECT variant_id, product_name_snapshot, variant_name_snapshot,
-		sku_snapshot, quantity, unit_price_minor, line_total_minor FROM order_items
-		WHERE tenant_id=$1 AND order_id=$2 ORDER BY id`, tenantID, orderID)
+	rows, err := tx.Query(ctx, `SELECT oi.variant_id, oi.product_name_snapshot, oi.variant_name_snapshot,
+		oi.sku_snapshot, oi.quantity, oi.unit_price_minor, oi.line_total_minor,
+		COALESCE((SELECT sum(ri.quantity) FROM return_items ri
+		  WHERE ri.tenant_id=oi.tenant_id AND ri.order_id=oi.order_id AND ri.variant_id=oi.variant_id), 0)
+		FROM order_items oi
+		WHERE oi.tenant_id=$1 AND oi.order_id=$2 ORDER BY oi.id`, tenantID, orderID)
 	if err != nil {
 		return nil, err
 	}
@@ -298,10 +301,14 @@ func loadSale(ctx context.Context, tx pgx.Tx, tenantID, orderID string) (*Sale, 
 	for rows.Next() {
 		var item SaleItem
 		if err := rows.Scan(&item.VariantID, &item.ProductName, &item.VariantName, &item.SKU,
-			&item.Quantity, &item.UnitPriceMinor, &item.LineTotalMinor); err != nil {
+			&item.Quantity, &item.UnitPriceMinor, &item.LineTotalMinor, &item.ReturnedQuantity); err != nil {
 			return nil, err
 		}
 		sale.Items = append(sale.Items, item)
 	}
-	return sale, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	return sale, saleReturns(ctx, tx, tenantID, sale)
 }

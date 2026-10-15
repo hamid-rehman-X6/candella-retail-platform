@@ -157,6 +157,12 @@ export default function ShiftPage() {
                 label={`Cash sales (${shift.salesCount})`}
                 value={formatMoney(shift.cashSalesMinor, shift.currencyCode)}
               />
+              {shift.refundsCount > 0 && (
+                <Row
+                  label={`Cash refunds (${shift.refundsCount})`}
+                  value={`− ${formatMoney(shift.cashRefundsMinor, shift.currencyCode)}`}
+                />
+              )}
               <Row
                 label="Expected in drawer"
                 value={formatMoney(shift.expectedCashMinor, shift.currencyCode)}

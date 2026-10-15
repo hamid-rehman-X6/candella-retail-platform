@@ -114,8 +114,8 @@ func (s *Service) List(ctx context.Context, tenantID string, actor Actor, filter
 
 // closingFigures applies the closing rule: the counted cash is compared with
 // the expected cash, and any difference must be explained.
-func closingFigures(openingMinor, cashSalesMinor int64, in CloseInput) (expected, variance int64, err error) {
-	expected = openingMinor + cashSalesMinor
+func closingFigures(openingMinor, cashSalesMinor, cashRefundsMinor int64, in CloseInput) (expected, variance int64, err error) {
+	expected = openingMinor + cashSalesMinor - cashRefundsMinor
 	if in.ExpectedCashMinor != expected {
 		return 0, 0, ErrExpectedChanged
 	}

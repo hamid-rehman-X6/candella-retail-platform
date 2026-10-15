@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Printer, Undo2 } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
+import { ReturnForm } from "@/components/app/return-form";
 import { formatDateTime } from "@/lib/datetime";
 import { formatMoney } from "@/lib/money";
 import { getSale, type Sale } from "@/lib/sales-api";
@@ -14,6 +15,10 @@ export default function ReceiptPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const [sale, setSale] = useState<Sale | null>(null);
   const [error, setError] = useState("");
+  const [returning, setReturning] = useState(false);
+  const canRefund = current.role === "owner" || current.role === "admin";
+  const returnable =
+    !!sale && sale.items.some((item) => item.returnedQuantity < item.quantity);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,13 +53,25 @@ export default function ReceiptPage() {
           </Link>
         </div>
         {sale && (
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-black"
-          >
-            <Printer className="h-4 w-4" /> Print receipt
-          </button>
+          <div className="flex flex-wrap gap-3">
+            {canRefund && returnable && (
+              <button
+                type="button"
+                onClick={() => setReturning((open) => !open)}
+                className="inline-flex items-center gap-2 rounded-xl border border-line px-4 py-2 text-sm font-medium hover:border-accent/50"
+              >
+                <Undo2 className="h-4 w-4" />{" "}
+                {returning ? "Cancel return" : "Return items"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-black"
+            >
+              <Printer className="h-4 w-4" /> Print receipt
+            </button>
+          </div>
         )}
       </div>
       {error && (
@@ -103,6 +120,11 @@ export default function ReceiptPage() {
                     {item.sku} · {item.quantity} ×{" "}
                     {formatMoney(item.unitPriceMinor, sale.currencyCode)}
                   </p>
+                  {item.returnedQuantity > 0 && (
+                    <p className="mt-1 text-xs font-medium text-danger-ink print:text-black">
+                      {item.returnedQuantity} returned
+                    </p>
+                  )}
                 </div>
                 <span className="shrink-0 font-medium">
                   {formatMoney(item.lineTotalMinor, sale.currencyCode)}
@@ -128,10 +150,53 @@ export default function ReceiptPage() {
               <dd>{formatMoney(sale.changeMinor, sale.currencyCode)}</dd>
             </div>
           </dl>
+          {sale.returns.length > 0 && (
+            <section className="mt-6 border-t border-line pt-5 text-sm print:border-gray-300">
+              <h2 className="font-semibold">Returns</h2>
+              <ul className="mt-2 space-y-2">
+                {sale.returns.map((item) => (
+                  <li key={item.id} className="flex justify-between gap-4">
+                    <span>
+                      <Link
+                        href={workspacePath(
+                          current.slug,
+                          `/sales/returns/${item.id}`,
+                        )}
+                        className="font-mono text-accent-ink hover:underline print:text-black print:no-underline"
+                      >
+                        {item.returnNumber}
+                      </Link>{" "}
+                      <span className="text-muted print:text-gray-600">
+                        · {formatDateTime(item.createdAt, current.timezone)} ·{" "}
+                        {item.reason}
+                      </span>
+                    </span>
+                    <span className="shrink-0">
+                      −{formatMoney(item.refundMinor, sale.currencyCode)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex justify-between font-semibold">
+                <span>Net after refunds</span>
+                <span>
+                  {formatMoney(
+                    sale.grandTotalMinor - sale.refundedMinor,
+                    sale.currencyCode,
+                  )}
+                </span>
+              </div>
+            </section>
+          )}
           <p className="mt-8 text-center text-xs text-muted print:text-gray-600">
             Thank you for shopping with us.
           </p>
         </article>
+      )}
+      {sale && canRefund && returning && (
+        <div className="mt-6 print:hidden">
+          <ReturnForm sale={sale} />
+        </div>
       )}
     </div>
   );

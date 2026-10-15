@@ -350,7 +350,9 @@ export default function InventoryPage() {
                       ? "Received"
                       : m.kind === "sale"
                         ? "Sold"
-                        : "Count corrected"}{" "}
+                        : m.kind === "return"
+                          ? "Returned by customer"
+                          : "Count corrected"}{" "}
                     · {m.sku} · {formatDateTime(m.createdAt, current.timezone)}
                   </p>
                   {m.note && <p className="mt-1 text-muted">{m.note}</p>}

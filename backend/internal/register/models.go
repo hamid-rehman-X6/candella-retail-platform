@@ -40,6 +40,8 @@ type Shift struct {
 	// recorded at closing and never change.
 	SalesCount        int64   `json:"salesCount"`
 	CashSalesMinor    int64   `json:"cashSalesMinor"`
+	RefundsCount      int64   `json:"refundsCount"`
+	CashRefundsMinor  int64   `json:"cashRefundsMinor"`
 	ExpectedCashMinor int64   `json:"expectedCashMinor"`
 	CountedCashMinor  *int64  `json:"countedCashMinor"`
 	VarianceMinor     *int64  `json:"varianceMinor"`

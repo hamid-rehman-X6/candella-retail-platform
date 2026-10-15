@@ -32,6 +32,8 @@ export type Shift = {
   /** Live while the shift is open; fixed at closing. */
   salesCount: number;
   cashSalesMinor: number;
+  refundsCount: number;
+  cashRefundsMinor: number;
   expectedCashMinor: number;
   countedCashMinor: number | null;
   varianceMinor: number | null;

@@ -120,6 +120,70 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]any{"sale": sale})
 }
 
+func decodeReturn(r *http.Request, dst *ReturnInput) error {
+	decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(dst); err != nil {
+		return ErrReturnInvalid
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		return ErrReturnInvalid
+	}
+	return nil
+}
+
+func (h *Handler) Return(w http.ResponseWriter, r *http.Request) {
+	t, _ := tenant.FromContext(r.Context())
+	u, _ := auth.UserFromContext(r.Context())
+	if !canRefund(t.Role) {
+		h.writeErr(w, ErrReturnForbidden)
+		return
+	}
+	var in ReturnInput
+	if err := decodeReturn(r, &in); err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	if in.StoreID == "" {
+		h.writeErr(w, store.ErrSelection)
+		return
+	}
+	if in.RegisterID == "" {
+		h.writeErr(w, register.ErrRegisterRequired)
+		return
+	}
+	r = r.WithContext(store.WithSelection(r.Context(), in.StoreID, u.ID, t.Role))
+	ret, created, err := h.svc.Return(r.Context(), t.TenantID, u.ID, u.FullName, chi.URLParam(r, "orderID"), in)
+	if err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	if !created {
+		response.JSON(w, http.StatusOK, map[string]any{"return": ret})
+		return
+	}
+	h.auditor.Record(r.Context(), audit.Entry{UserID: &u.ID, Action: "sale.returned", EntityType: "return", EntityID: ret.ID,
+		Metadata: map[string]any{"returnNumber": ret.ReturnNumber, "orderId": ret.OrderID, "refundMinor": ret.RefundMinor,
+			"shiftId": ret.ShiftID, "reason": ret.Reason}})
+	response.JSON(w, http.StatusCreated, map[string]any{"return": ret})
+}
+
+func (h *Handler) ReturnReceipt(w http.ResponseWriter, r *http.Request) {
+	t, _ := tenant.FromContext(r.Context())
+	u, _ := auth.UserFromContext(r.Context())
+	if !canCheckout(t.Role) {
+		response.Error(w, http.StatusForbidden, "insufficient_role", "Ask a workspace owner to grant you sales access.")
+		return
+	}
+	ret, err := h.svc.ReturnReceipt(store.WithActor(r.Context(), u.ID, t.Role), t.TenantID, chi.URLParam(r, "returnID"))
+	if err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"return": ret})
+}
+
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 	t, _ := tenant.FromContext(r.Context())
 	u, _ := auth.UserFromContext(r.Context())
