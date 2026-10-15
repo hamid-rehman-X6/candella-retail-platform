@@ -4,7 +4,6 @@
 package middleware
 
 import (
-	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -63,7 +62,7 @@ func (rl *RateLimiter) purge(now time.Time) {
 // Middleware returns the handler wrapper; over-limit requests get a 429.
 func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !rl.allow(clientIP(r)) {
+		if !rl.allow(rateLimitKey(r)) {
 			response.Error(w, http.StatusTooManyRequests, "rate_limited",
 				"Too many requests. Please slow down and try again.")
 			return
@@ -72,12 +71,17 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-// clientIP extracts the host portion of RemoteAddr (chi's RealIP middleware has
-// already normalised this to the true client IP behind proxies).
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
+// rateLimitKey buckets IPv4 clients by address and IPv6 clients by /64: one
+// IPv6 host usually controls a whole /64 and could otherwise rotate through it
+// to get a fresh limit on every request.
+func rateLimitKey(r *http.Request) string {
+	ip := ClientIPOf(r).WithZone("")
+	if !ip.IsValid() {
 		return r.RemoteAddr
 	}
-	return host
+	if ip.Is6() {
+		prefix, _ := ip.Prefix(64)
+		return prefix.String()
+	}
+	return ip.String()
 }

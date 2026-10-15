@@ -100,13 +100,24 @@ func main() {
 	// 20 requests/min/IP on sensitive, unauthenticated auth endpoints.
 	authLimiter := appmiddleware.NewRateLimiter(20, time.Minute)
 
+	trustedProxies, err := appmiddleware.ParseTrustedProxies(cfg.TrustedProxies)
+	if err != nil {
+		log.Error("invalid proxy configuration", "error", err)
+		os.Exit(1)
+	}
+	if len(trustedProxies) == 0 {
+		log.Info("client IPs taken from the connection; set TRUSTED_PROXIES when running behind a reverse proxy")
+	} else {
+		log.Info("client IPs taken from X-Forwarded-For via trusted proxies", "trusted_proxies", trustedProxies)
+	}
+
 	// --- Router -----------------------------------------------------------
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
-	r.Use(chimiddleware.RealIP)
+	r.Use(appmiddleware.ClientIP(trustedProxies))
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(30 * time.Second))
-	// After RealIP, so audited IPs reflect any trusted proxy headers.
+	// After ClientIP, so the audited IP is the one the rate limiter sees.
 	r.Use(audit.Middleware)
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{cfg.AllowedCORS},
