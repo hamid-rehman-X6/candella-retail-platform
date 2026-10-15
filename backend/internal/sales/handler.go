@@ -12,6 +12,7 @@ import (
 
 	"candella-ecosystem/backend/internal/audit"
 	"candella-ecosystem/backend/internal/auth"
+	"candella-ecosystem/backend/internal/register"
 	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/internal/tenant"
 	"candella-ecosystem/backend/pkg/response"
@@ -35,6 +36,10 @@ func (h *Handler) writeErr(w http.ResponseWriter, err error) {
 	var storeErr *store.Error
 	if errors.As(err, &storeErr) {
 		response.Error(w, storeErr.Status, storeErr.Code, storeErr.Message)
+		return
+	}
+	if e, ok := register.AsError(err); ok {
+		response.Error(w, e.Status, e.Code, e.Message)
 		return
 	}
 	if e, ok := asSaleError(err); ok {
@@ -96,6 +101,10 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 		h.writeErr(w, store.ErrSelection)
 		return
 	}
+	if in.RegisterID == "" {
+		h.writeErr(w, register.ErrRegisterRequired)
+		return
+	}
 	r = r.WithContext(store.WithSelection(r.Context(), in.StoreID, u.ID, t.Role))
 	sale, created, err := h.svc.Checkout(r.Context(), t.TenantID, u.ID, u.FullName, in)
 	if err != nil {
@@ -104,7 +113,7 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 	}
 	if created {
 		h.auditor.Record(r.Context(), audit.Entry{UserID: &u.ID, Action: "sale.completed", EntityType: "order", EntityID: sale.ID,
-			Metadata: map[string]any{"orderNumber": sale.OrderNumber, "totalMinor": sale.GrandTotalMinor}})
+			Metadata: map[string]any{"orderNumber": sale.OrderNumber, "totalMinor": sale.GrandTotalMinor, "shiftId": sale.ShiftID}})
 		response.JSON(w, http.StatusCreated, map[string]any{"sale": sale})
 		return
 	}

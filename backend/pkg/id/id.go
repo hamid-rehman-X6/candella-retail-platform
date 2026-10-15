@@ -36,6 +36,8 @@ const (
 	Order            Prefix = "ord"
 	OrderItem        Prefix = "oitem"
 	Payment          Prefix = "pay"
+	Register         Prefix = "reg"
+	RegisterSession  Prefix = "shift"
 )
 
 // New returns a new prefixed ID, e.g. New(id.User) -> "usr_4f8K2mQpXrTz".

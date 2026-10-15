@@ -133,8 +133,10 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	loc := Location{ID: id.New(id.Store), Name: name, Accessible: true}
 	err = h.tx(r, tenantID, func(tx pgx.Tx) error {
-		_, err := tx.Exec(r.Context(), `INSERT INTO stores (id,tenant_id,name,is_default) VALUES ($1,$2,$3,false)`, loc.ID, tenantID, name)
-		return err
+		if _, err := tx.Exec(r.Context(), `INSERT INTO stores (id,tenant_id,name,is_default) VALUES ($1,$2,$3,false)`, loc.ID, tenantID, name); err != nil {
+			return err
+		}
+		return CreateDefaultRegister(r.Context(), tx, tenantID, loc.ID)
 	})
 	if err != nil {
 		h.writeErr(w, err)

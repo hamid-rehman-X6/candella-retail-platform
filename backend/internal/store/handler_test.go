@@ -123,6 +123,10 @@ func TestStoreManagementPostgres(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT id FROM stores WHERE tenant_id=$1 AND name='Branch'`, tenantA).Scan(&branchID); err != nil {
 		t.Fatal(err)
 	}
+	var counters int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM registers WHERE tenant_id=$1 AND store_id=$2 AND name='Counter 1'`, tenantA, branchID).Scan(&counters); err != nil || counters != 1 {
+		t.Fatalf("a new store must come with its first counter: counters=%d err=%v", counters, err)
+	}
 	if got := call("POST", `{"name":"branch"}`, tenantA, ownerID, "owner", "", h.Create).Code; got != http.StatusConflict {
 		t.Fatalf("duplicate store status=%d", got)
 	}

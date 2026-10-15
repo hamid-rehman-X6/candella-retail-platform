@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/pkg/id"
 )
 
@@ -50,8 +51,11 @@ func (r *repoPostgres) CreateWithOwner(ctx context.Context, w *Workspace, ownerU
 		if _, err := tx.Exec(ctx, `SELECT set_config('app.current_tenant_id', $1, true)`, w.ID); err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO stores (id, tenant_id, name, is_default) VALUES ($1, $2, 'Main store', true)`, id.New(id.Store), w.ID)
-		return err
+		storeID := id.New(id.Store)
+		if _, err := tx.Exec(ctx, `INSERT INTO stores (id, tenant_id, name, is_default) VALUES ($1, $2, 'Main store', true)`, storeID, w.ID); err != nil {
+			return err
+		}
+		return store.CreateDefaultRegister(ctx, tx, w.ID, storeID)
 	})
 }
 
