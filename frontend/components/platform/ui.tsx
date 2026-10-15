@@ -1,5 +1,6 @@
 import type { ActivityEntry } from "@/lib/platform-api";
 import { cn } from "@/lib/cn";
+import { DEFAULT_TIMEZONE, formatDateTime } from "@/lib/datetime";
 
 /** A headline number. */
 export function StatCard({
@@ -55,9 +56,13 @@ export function maskEmail(email: string): string {
   return `${local.charAt(0)}${"•".repeat(Math.max(local.length - 1, 1))}@${domain}`;
 }
 
-/** Absolute UTC timestamp — unambiguous for staff reading across time zones. */
+/**
+ * Pakistan time with an explicit zone label. Staff look at many workspaces at
+ * once, so the label keeps a timestamp unambiguous even when a workspace has
+ * been set to another zone.
+ */
 export function formatDate(iso: string): string {
-  return new Date(iso).toISOString().replace("T", " ").slice(0, 16) + " UTC";
+  return `${formatDateTime(iso, DEFAULT_TIMEZONE)} PKT`;
 }
 
 export function ActivityList({ entries }: { entries: ActivityEntry[] }) {

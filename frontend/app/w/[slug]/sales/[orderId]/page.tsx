@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Printer } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
+import { formatDateTime } from "@/lib/datetime";
 import { formatMoney } from "@/lib/money";
 import { getSale, type Sale } from "@/lib/sales-api";
 
@@ -77,11 +78,7 @@ export default function ReceiptPage() {
             <p className="mt-1 text-sm">Store: {sale.storeName}</p>
             <p className="mt-2 font-mono text-sm">{sale.orderNumber}</p>
             <p className="mt-1 text-xs text-muted print:text-gray-600">
-              {new Intl.DateTimeFormat(undefined, {
-                dateStyle: "medium",
-                timeStyle: "short",
-                timeZone: current.timezone,
-              }).format(new Date(sale.createdAt))}
+              {formatDateTime(sale.createdAt, current.timezone)}
             </p>
             <p className="mt-1 text-xs text-muted print:text-gray-600">
               Cashier: {sale.cashierName || sale.cashierId}

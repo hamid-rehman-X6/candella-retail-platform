@@ -11,6 +11,7 @@ import {
 import { ArrowDownToLine, ClipboardCheck, Search, X } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
 import { useStoreSelection } from "@/lib/use-store-selection";
+import { formatDateTime } from "@/lib/datetime";
 import { Select } from "@/components/ui/select";
 import {
   getCatalogSummary,
@@ -350,7 +351,7 @@ export default function InventoryPage() {
                       : m.kind === "sale"
                         ? "Sold"
                         : "Count corrected"}{" "}
-                    · {m.sku} · {new Date(m.createdAt).toLocaleString()}
+                    · {m.sku} · {formatDateTime(m.createdAt, current.timezone)}
                   </p>
                   {m.note && <p className="mt-1 text-muted">{m.note}</p>}
                   {m.orderId && (

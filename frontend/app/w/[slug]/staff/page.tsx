@@ -5,6 +5,7 @@ import { Select } from "@/components/ui/select";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app/app-context";
+import { formatDate } from "@/lib/datetime";
 import {
   changeStaffRole,
   inviteStaff,
@@ -249,7 +250,7 @@ export default function StaffPage() {
                   <p className="truncate font-medium">{invitation.email}</p>
                   <p className="text-sm text-muted">
                     {invitation.role} · Expires{" "}
-                    {new Date(invitation.expiresAt).toLocaleDateString()}
+                    {formatDate(invitation.expiresAt, current.timezone)}
                   </p>
                 </div>
                 <button
