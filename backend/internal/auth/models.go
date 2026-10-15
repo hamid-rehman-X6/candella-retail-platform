@@ -18,6 +18,10 @@ type User struct {
 // IsEmailVerified reports whether the user has proven ownership of their email.
 func (u User) IsEmailVerified() bool { return u.EmailVerifiedAt != nil }
 
+// IsActive reports whether the account may sign in. Anything other than
+// "active" fails closed, so a status added later is refused until handled.
+func (u User) IsActive() bool { return u.Status == "active" }
+
 // Session is a row in the sessions table (the raw token lives only in the cookie).
 type Session struct {
 	ID        string

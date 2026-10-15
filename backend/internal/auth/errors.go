@@ -27,6 +27,7 @@ var (
 	ErrEmailTaken        = newError(http.StatusConflict, "email_taken", "An account with this email already exists.")
 	ErrInvalidCredential = newError(http.StatusUnauthorized, "invalid_credentials", "Incorrect email or password.")
 	ErrEmailNotVerified  = newError(http.StatusForbidden, "email_not_verified", "Please verify your email before signing in.")
+	ErrAccountDisabled   = newError(http.StatusForbidden, "account_disabled", "This account has been disabled. Contact your workspace owner or Candella support.")
 	ErrCodeInvalid       = newError(http.StatusBadRequest, "code_invalid", "That code isn't right. Check it and try again.")
 	ErrCodeExpired       = newError(http.StatusBadRequest, "code_expired", "That code has expired. Request a new one.")
 	ErrTooManyAttempts   = newError(http.StatusTooManyRequests, "too_many_attempts", "Too many attempts. Request a new code.")

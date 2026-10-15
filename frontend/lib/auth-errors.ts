@@ -27,6 +27,11 @@ const COPY: Record<string, AuthErrorCopy> = {
     description:
       "An unverified account exists for this address. Sign in with your password first, then you can use Google.",
   },
+  account_disabled: {
+    title: "This account has been disabled",
+    description:
+      "Contact your workspace owner or Candella support to restore access.",
+  },
   token_invalid: {
     title: "That sign-in attempt expired",
     description:
