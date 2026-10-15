@@ -47,13 +47,22 @@ func main() {
 	rootCtx := context.Background()
 
 	// --- Database ---------------------------------------------------------
-	pool, err := database.Connect(rootCtx, cfg.DatabaseURL)
+	// Two pools, two restricted roles: tenant requests can never bypass RLS, and
+	// the platform console reads across tenants without being able to write.
+	pool, err := database.Connect(rootCtx, cfg.DatabaseURL, database.AppRole)
 	if err != nil {
 		log.Error("database connect failed", "error", err)
 		os.Exit(1)
 	}
 	defer pool.Close()
-	log.Info("database connected")
+
+	platformPool, err := database.Connect(rootCtx, cfg.PlatformDatabaseURL, database.PlatformRole)
+	if err != nil {
+		log.Error("platform database connect failed", "error", err)
+		os.Exit(1)
+	}
+	defer platformPool.Close()
+	log.Info("database connected", "app_role", database.AppRole, "platform_role", database.PlatformRole)
 
 	// --- Auth dependencies ------------------------------------------------
 	// TOTP secret encryptor — optional; 2FA setup is rejected when unset.
@@ -91,10 +100,9 @@ func main() {
 	storeHandler := store.NewHandler(pool, auditor, log)
 	salesHandler := sales.NewHandler(sales.NewService(sales.NewPostgresRepository(pool)), auditor, log)
 
-	// The platform console reads across every tenant. It will move to its own
-	// pool running as a dedicated DB role once RLS lands (see the architecture
-	// plan §3.2); the seam is here so that's a wiring change, not a refactor.
-	platformSvc := platform.NewService(platform.NewPostgresRepository(pool))
+	// The platform console reads across every tenant through its own pool (see
+	// the architecture plan §3.2). Its audit entries still go through auditor.
+	platformSvc := platform.NewService(platform.NewPostgresRepository(platformPool))
 	platformHandler := platform.NewHandler(platformSvc, auditor, log)
 
 	// 20 requests/min/IP on sensitive, unauthenticated auth endpoints.

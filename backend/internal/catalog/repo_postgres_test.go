@@ -15,6 +15,7 @@ import (
 
 	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/migrations"
+	"candella-ecosystem/backend/pkg/database"
 	"candella-ecosystem/backend/pkg/id"
 )
 
@@ -70,6 +71,13 @@ func TestCreateProductWithOpeningStockPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
+	// Seed as the login; run the code under test as the API role, so RLS and
+	// grants apply exactly as they do in the server.
+	appPool, err := database.Connect(ctx, dsn, database.AppRole)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer appPool.Close()
 	userID, tenantA, tenantB, storeID := id.New(id.User), id.New(id.Tenant), id.New(id.Tenant), id.New(id.Store)
 	mustExec := func(query string, args ...any) {
 		t.Helper()
@@ -82,7 +90,7 @@ func TestCreateProductWithOpeningStockPostgres(t *testing.T) {
 		mustExec(`INSERT INTO tenants (id,name,slug,industry_type,currency_code) VALUES ($1,'Test shop',$2,'pos_general','USD')`, tenantID, tenantID)
 	}
 	mustExec(`INSERT INTO stores (id,tenant_id,name,is_default) VALUES ($1,$2,'Main',true)`, storeID, tenantA)
-	svc := NewService(NewPostgresRepository(pool))
+	svc := NewService(NewPostgresRepository(appPool))
 	opening := int64(7)
 	product, err := svc.CreateProduct(ctx, tenantA, userID, CreateProductInput{
 		Name: "Soap", Variant: CreateVariantInput{Name: "Blue", PriceMinor: 150}, InitialQuantity: &opening,

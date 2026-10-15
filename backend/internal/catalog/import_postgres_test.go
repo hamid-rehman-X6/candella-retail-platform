@@ -13,6 +13,7 @@ import (
 	"github.com/pressly/goose/v3"
 
 	"candella-ecosystem/backend/migrations"
+	"candella-ecosystem/backend/pkg/database"
 	"candella-ecosystem/backend/pkg/id"
 )
 
@@ -63,6 +64,13 @@ func TestCatalogImportPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
+	// Seed as the login; run the code under test as the API role, so RLS and
+	// grants apply exactly as they do in the server.
+	appPool, err := database.Connect(ctx, dsn, database.AppRole)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer appPool.Close()
 	mustExec := func(query string, args ...any) {
 		t.Helper()
 		if _, err := pool.Exec(ctx, query, args...); err != nil {
@@ -75,7 +83,7 @@ func TestCatalogImportPostgres(t *testing.T) {
 		mustExec(`INSERT INTO tenants (id,name,slug,industry_type,currency_code) VALUES ($1,'CSV shop',$2,'pos_general','PKR')`, tenantID, tenantID)
 		mustExec(`INSERT INTO stores (id,tenant_id,name,is_default) VALUES ($1,$2,'Main',true)`, id.New(id.Store), tenantID)
 	}
-	svc := NewImportService(NewImportPostgresRepository(pool))
+	svc := NewImportService(NewImportPostgresRepository(appPool))
 	rows := []ImportRow{{Line: 2, ProductName: "School shirt", VariantName: "Small", SKU: "SHIRT-S", SellingPrice: "150.50", OpeningQuantity: "7"},
 		{Line: 3, ProductName: "School shirt", VariantName: "Large", SKU: "SHIRT-L", SellingPrice: "200", OpeningQuantity: "0"}}
 	preview, err := svc.Preview(ctx, tenantA, "create", "", rows)

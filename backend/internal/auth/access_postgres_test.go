@@ -31,6 +31,7 @@ import (
 	"candella-ecosystem/backend/migrations"
 	"candella-ecosystem/backend/pkg/config"
 	"candella-ecosystem/backend/pkg/crypto"
+	"candella-ecosystem/backend/pkg/database"
 	"candella-ecosystem/backend/pkg/mailer"
 )
 
@@ -194,6 +195,13 @@ func newAuthEnv(t *testing.T) *authEnv {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
+	// Seed as the login; run the code under test as the API role, so RLS and
+	// grants apply exactly as they do in the server.
+	appPool, err := database.Connect(ctx, dsn, database.AppRole)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(appPool.Close)
 
 	cfg := config.Config{
 		AppBaseURL:            "http://localhost:3000",
@@ -213,7 +221,7 @@ func newAuthEnv(t *testing.T) *authEnv {
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	mail := &captureMailer{}
-	svc := auth.NewService(auth.NewPostgresRepository(pool), mail, audit.NewRecorder(pool, log), cfg, log, enc, randomBytes(t, 32))
+	svc := auth.NewService(auth.NewPostgresRepository(appPool), mail, audit.NewRecorder(appPool, log), cfg, log, enc, randomBytes(t, 32))
 
 	router := chi.NewRouter()
 	router.Route("/api/v1", func(api chi.Router) {

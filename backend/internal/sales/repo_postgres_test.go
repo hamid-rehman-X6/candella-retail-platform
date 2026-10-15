@@ -16,6 +16,7 @@ import (
 
 	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/migrations"
+	"candella-ecosystem/backend/pkg/database"
 	"candella-ecosystem/backend/pkg/id"
 )
 
@@ -71,6 +72,13 @@ func TestCashCheckoutPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
+	// Seed as the login; run the code under test as the API role, so RLS and
+	// grants apply exactly as they do in the server.
+	appPool, err := database.Connect(ctx, dsn, database.AppRole)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer appPool.Close()
 	userID, tenantA, tenantB := id.New(id.User), id.New(id.Tenant), id.New(id.Tenant)
 	storeA, storeB := id.New(id.Store), id.New(id.Store)
 	variantA, variantB, concurrentVariant := id.New(id.ProductVariant), id.New(id.ProductVariant), id.New(id.ProductVariant)
@@ -97,7 +105,7 @@ func TestCashCheckoutPostgres(t *testing.T) {
 		mustExec(`INSERT INTO stock_levels (id,tenant_id,store_id,variant_id,quantity) VALUES ($1,$2,$3,$4,5)`,
 			id.New(id.StockLevel), seed.tenantID, seed.storeID, seed.variantID)
 	}
-	svc := NewService(NewPostgresRepository(pool))
+	svc := NewService(NewPostgresRepository(appPool))
 	input := CheckoutInput{IdempotencyKey: "cash-sale-001", CashReceivedMinor: 500,
 		Items: []CartItem{{VariantID: variantA, Quantity: 2}}}
 	sale, created, err := svc.Checkout(ctx, tenantA, userID, "Cashier", input)

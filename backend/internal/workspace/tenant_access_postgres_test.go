@@ -25,6 +25,7 @@ import (
 	"candella-ecosystem/backend/migrations"
 	"candella-ecosystem/backend/pkg/config"
 	"candella-ecosystem/backend/pkg/crypto"
+	"candella-ecosystem/backend/pkg/database"
 	"candella-ecosystem/backend/pkg/id"
 	"candella-ecosystem/backend/pkg/mailer"
 )
@@ -59,6 +60,13 @@ func TestTenantAccessBoundariesPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
+	// Seed as the login; run the code under test as the API role, so RLS and
+	// grants apply exactly as they do in the server.
+	appPool, err := database.Connect(ctx, dsn, database.AppRole)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer appPool.Close()
 	exec := func(query string, args ...any) {
 		t.Helper()
 		if _, err := pool.Exec(ctx, query, args...); err != nil {
@@ -122,10 +130,10 @@ func TestTenantAccessBoundariesPostgres(t *testing.T) {
 	// --- server: the production middleware chain in front of a probe -----------
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := config.Config{SessionCookieName: "candella_session", SessionTTL: time.Hour}
-	authSvc := auth.NewService(auth.NewPostgresRepository(pool), mailer.NewConsoleMailer(log),
-		audit.NewRecorder(pool, log), cfg, log, nil, []byte("tenant-access-test-challenge-key!"))
+	authSvc := auth.NewService(auth.NewPostgresRepository(appPool), mailer.NewConsoleMailer(log),
+		audit.NewRecorder(appPool, log), cfg, log, nil, []byte("tenant-access-test-challenge-key!"))
 	authHandler := auth.NewHandler(authSvc, cfg)
-	wsHandler := workspace.NewHandler(workspace.NewService(workspace.NewPostgresRepository(pool)))
+	wsHandler := workspace.NewHandler(workspace.NewService(workspace.NewPostgresRepository(appPool)))
 
 	router := chi.NewRouter()
 	router.With(authHandler.RequireAuth, wsHandler.RequireTenant).Get("/probe", func(w http.ResponseWriter, r *http.Request) {

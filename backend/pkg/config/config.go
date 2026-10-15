@@ -18,9 +18,12 @@ type Config struct {
 	Env         string
 	Port        string
 	DatabaseURL string
-	RedisURL    string
-	AllowedCORS string
-	AppBaseURL  string // public origin of the frontend (reset links, OAuth redirects)
+	// Connection for the platform console's pool. Defaults to DatabaseURL; set
+	// it to give the console its own database login in production.
+	PlatformDatabaseURL string
+	RedisURL            string
+	AllowedCORS         string
+	AppBaseURL          string // public origin of the frontend (reset links, OAuth redirects)
 
 	// Reverse proxies (comma-separated IPs/CIDRs) whose X-Forwarded-For is
 	// trusted. Blank = clients connect directly and forwarding headers are ignored.
@@ -70,13 +73,15 @@ func (c Config) GoogleEnabled() bool {
 
 // Load reads configuration from the environment, applying safe local-dev defaults.
 func Load() Config {
+	databaseURL := getenv("DATABASE_URL", "postgres://candella:candella@localhost:5433/candella?sslmode=disable")
 	return Config{
-		Env:         getenv("APP_ENV", "development"),
-		Port:        getenv("PORT", "8080"),
-		DatabaseURL: getenv("DATABASE_URL", "postgres://candella:candella@localhost:5433/candella?sslmode=disable"),
-		RedisURL:    getenv("REDIS_URL", "redis://localhost:6381"),
-		AllowedCORS: getenv("ALLOWED_CORS_ORIGIN", "http://localhost:3000"),
-		AppBaseURL:  getenv("APP_BASE_URL", "http://localhost:3000"),
+		Env:                 getenv("APP_ENV", "development"),
+		Port:                getenv("PORT", "8080"),
+		DatabaseURL:         databaseURL,
+		PlatformDatabaseURL: getenv("PLATFORM_DATABASE_URL", databaseURL),
+		RedisURL:            getenv("REDIS_URL", "redis://localhost:6381"),
+		AllowedCORS:         getenv("ALLOWED_CORS_ORIGIN", "http://localhost:3000"),
+		AppBaseURL:          getenv("APP_BASE_URL", "http://localhost:3000"),
 
 		TrustedProxies: getenv("TRUSTED_PROXIES", ""),
 

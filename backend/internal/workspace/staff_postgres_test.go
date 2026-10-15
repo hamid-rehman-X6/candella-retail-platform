@@ -15,6 +15,7 @@ import (
 	"github.com/pressly/goose/v3"
 
 	"candella-ecosystem/backend/migrations"
+	"candella-ecosystem/backend/pkg/database"
 	"candella-ecosystem/backend/pkg/id"
 	"candella-ecosystem/backend/pkg/mailer"
 )
@@ -98,6 +99,13 @@ func TestStaffInvitationLifecyclePostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
+	// Seed as the login; run the code under test as the API role, so RLS and
+	// grants apply exactly as they do in the server.
+	appPool, err := database.Connect(ctx, dsn, database.AppRole)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer appPool.Close()
 	exec := func(query string, args ...any) {
 		t.Helper()
 		if _, err := pool.Exec(ctx, query, args...); err != nil {
@@ -126,7 +134,7 @@ func TestStaffInvitationLifecyclePostgres(t *testing.T) {
 	for _, seed := range []struct{ tenantID, userID, role string }{{tenantA, ownerA, "owner"}, {tenantA, admin, "admin"}, {tenantB, ownerB, "owner"}} {
 		exec(`INSERT INTO tenant_memberships (id,tenant_id,user_id,role,status) VALUES ($1,$2,$3,$4,'active')`, id.New(id.TenantMembership), seed.tenantID, seed.userID, seed.role)
 	}
-	repo := NewStaffPostgresRepository(pool)
+	repo := NewStaffPostgresRepository(appPool)
 	mail := &staffTestMailer{}
 	svc := NewStaffService(repo, mail, "http://localhost:3000")
 	invitation, err := svc.Invite(ctx, tenantA, ownerA, " STAFF@example.test ", "member")
@@ -169,7 +177,7 @@ func TestStaffInvitationLifecyclePostgres(t *testing.T) {
 	if _, err := svc.Accept(ctx, newToken, invited, "staff@example.test", true); err != ErrInvitationInvalid {
 		t.Fatalf("token replay err=%v", err)
 	}
-	if m, err := NewService(NewPostgresRepository(pool)).ResolveMembership(ctx, invited, tenantA); err != nil || m.Role != "member" {
+	if m, err := NewService(NewPostgresRepository(appPool)).ResolveMembership(ctx, invited, tenantA); err != nil || m.Role != "member" {
 		t.Fatalf("accepted membership=%+v err=%v", m, err)
 	}
 	if err := svc.ChangeRole(ctx, tenantA, admin, admin, "owner"); err != ErrStaffForbidden {
@@ -190,7 +198,7 @@ func TestStaffInvitationLifecyclePostgres(t *testing.T) {
 	if err := svc.Remove(ctx, tenantA, ownerA, invited); err != nil {
 		t.Fatalf("remove member: %v", err)
 	}
-	if _, err := NewService(NewPostgresRepository(pool)).ResolveMembership(ctx, invited, tenantA); err != ErrNoMembership {
+	if _, err := NewService(NewPostgresRepository(appPool)).ResolveMembership(ctx, invited, tenantA); err != ErrNoMembership {
 		t.Fatalf("removed member has access: %v", err)
 	}
 	ownerInvite, err := svc.Invite(ctx, tenantA, ownerA, "co-owner@example.test", "owner")
