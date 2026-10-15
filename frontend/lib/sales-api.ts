@@ -14,6 +14,9 @@ export type Sale = {
   id: string;
   storeId: string;
   storeName: string;
+  /** Empty for sales made before shifts existed. */
+  registerName: string;
+  shiftId: string;
   orderNumber: string;
   cashierId: string;
   cashierName: string;
@@ -64,6 +67,7 @@ export const listSales = (tenantId: string, filters: SalesFilters) => {
 
 export type CheckoutInput = {
   storeId: string;
+  registerId: string;
   idempotencyKey: string;
   items: { variantId: string; quantity: number }[];
   cashReceivedMinor: number;

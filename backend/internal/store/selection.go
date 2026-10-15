@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+
+	"candella-ecosystem/backend/pkg/id"
 )
 
 type Error struct {
@@ -37,6 +39,14 @@ func Actor(ctx context.Context) (string, string, bool) {
 
 func WithSelection(ctx context.Context, storeID, userID, role string) context.Context {
 	return context.WithValue(ctx, selectionKey{}, selection{storeID, userID, role})
+}
+
+// CreateDefaultRegister gives a new store the counter it sells from, inside the
+// transaction that creates the store. More counters are added in the register slice.
+func CreateDefaultRegister(ctx context.Context, tx pgx.Tx, tenantID, storeID string) error {
+	_, err := tx.Exec(ctx, `INSERT INTO registers (id, tenant_id, store_id, name) VALUES ($1,$2,$3,'Counter 1')`,
+		id.New(id.Register), tenantID, storeID)
+	return err
 }
 
 type Location struct {

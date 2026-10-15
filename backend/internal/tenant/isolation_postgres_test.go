@@ -27,7 +27,7 @@ import (
 var tenantTables = []string{
 	"stores", "store_access", "products", "product_variants", "stock_levels",
 	"stock_movements", "document_sequences", "orders", "order_items", "payments",
-	"suppliers", "supplier_variants", "catalog_import_batches",
+	"suppliers", "supplier_variants", "catalog_import_batches", "registers", "register_sessions",
 }
 
 // controlPlaneTables carry a tenant_id but are read before a tenant is in scope:
@@ -116,7 +116,7 @@ func setupIsolation(t *testing.T) *isolationEnv {
 }
 
 type seededTenant struct {
-	tenantID, userID, storeID, productID, variantID, orderID, supplierID string
+	tenantID, userID, storeID, productID, variantID, orderID, supplierID, registerID, shiftID string
 }
 
 // seedTenant writes one row of every tenant table for a new tenant, as the
@@ -127,6 +127,7 @@ func seedTenant(t *testing.T, env *isolationEnv) seededTenant {
 		tenantID: id.New(id.Tenant), userID: id.New(id.User), storeID: id.New(id.Store),
 		productID: id.New(id.Product), variantID: id.New(id.ProductVariant),
 		orderID: id.New(id.Order), supplierID: id.New(id.Supplier),
+		registerID: id.New(id.Register), shiftID: id.New(id.RegisterSession),
 	}
 	statements := []struct {
 		query string
@@ -145,10 +146,16 @@ func seedTenant(t *testing.T, env *isolationEnv) seededTenant {
 		{`INSERT INTO stock_levels (id, tenant_id, store_id, variant_id, quantity)
 		  VALUES ($1, $2, $3, $4, 9)`, []any{id.New(id.StockLevel), s.tenantID, s.storeID, s.variantID}},
 		{`INSERT INTO document_sequences (tenant_id) VALUES ($1)`, []any{s.tenantID}},
+		{`INSERT INTO registers (id, tenant_id, store_id, name) VALUES ($1, $2, $3, 'Counter 1')`,
+			[]any{s.registerID, s.tenantID, s.storeID}},
+		{`INSERT INTO register_sessions (id, tenant_id, store_id, register_id, register_name_snapshot,
+		    opened_by, opener_name_snapshot, opening_cash_minor)
+		  VALUES ($1, $2, $3, $4, 'Counter 1', $5, 'Owner', 5000)`,
+			[]any{s.shiftID, s.tenantID, s.storeID, s.registerID, s.userID}},
 		{`INSERT INTO orders (id, tenant_id, store_id, order_number, idempotency_key, request_hash,
-		    currency_code, subtotal_minor, grand_total_minor, created_by, store_name_snapshot)
-		  VALUES ($1, $2, $3, 'POS-000001', $1, repeat('a', 64), 'PKR', 15000, 15000, $4, 'Main')`,
-			[]any{s.orderID, s.tenantID, s.storeID, s.userID}},
+		    currency_code, subtotal_minor, grand_total_minor, created_by, store_name_snapshot, register_session_id)
+		  VALUES ($1, $2, $3, 'POS-000001', $1, repeat('a', 64), 'PKR', 15000, 15000, $4, 'Main', $5)`,
+			[]any{s.orderID, s.tenantID, s.storeID, s.userID, s.shiftID}},
 		{`INSERT INTO order_items (id, tenant_id, order_id, variant_id, product_name_snapshot,
 		    variant_name_snapshot, sku_snapshot, quantity, unit_price_minor, line_total_minor)
 		  VALUES ($1, $2, $3, $4, 'Original', 'Default', 'SKU', 1, 15000, 15000)`,
@@ -309,6 +316,8 @@ func TestTenantIsolation(t *testing.T) {
 			`UPDATE suppliers SET name = 'Hijacked' WHERE tenant_id = $1`,
 			`UPDATE document_sequences SET current_number = 999 WHERE tenant_id = $1`,
 			`DELETE FROM store_access WHERE tenant_id = $1`,
+			`UPDATE register_sessions SET status = 'closed' WHERE tenant_id = $1`,
+			`UPDATE registers SET name = 'Hijacked' WHERE tenant_id = $1`,
 		}
 		for _, change := range changes {
 			affected, err := inTenant(env, a.tenantID, change, b.tenantID)
@@ -358,6 +367,12 @@ func TestTenantIsolation(t *testing.T) {
 			VALUES ($1, $2, $3, $4, 'X', 'X', 'X', 1, 1, 1)`,
 			id.New(id.OrderItem), a.tenantID, b.orderID, a.variantID)
 		expectCode(t, err, foreignKey, "line on tenant B's order")
+		_, err = inTenant(env, a.tenantID, `
+			INSERT INTO register_sessions (id, tenant_id, store_id, register_id, register_name_snapshot,
+			  opened_by, opener_name_snapshot, opening_cash_minor)
+			VALUES ($1, $2, $3, $4, 'X', $5, 'X', 0)`,
+			id.New(id.RegisterSession), a.tenantID, a.storeID, b.registerID, a.userID)
+		expectCode(t, err, foreignKey, "shift on tenant B's counter")
 	})
 
 	t.Run("ledgers and the audit trail are append-only for the API", func(t *testing.T) {

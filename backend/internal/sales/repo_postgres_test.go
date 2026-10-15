@@ -14,6 +14,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
+	"candella-ecosystem/backend/internal/register"
 	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/migrations"
 	"candella-ecosystem/backend/pkg/database"
@@ -105,12 +106,44 @@ func TestCashCheckoutPostgres(t *testing.T) {
 		mustExec(`INSERT INTO stock_levels (id,tenant_id,store_id,variant_id,quantity) VALUES ($1,$2,$3,$4,5)`,
 			id.New(id.StockLevel), seed.tenantID, seed.storeID, seed.variantID)
 	}
+	// Every cash sale goes into the open shift of the counter it is rung up on.
+	openShift := func(tenantID, storeID string) (string, string) {
+		t.Helper()
+		registerID, shiftID := id.New(id.Register), id.New(id.RegisterSession)
+		mustExec(`INSERT INTO registers (id,tenant_id,store_id,name) VALUES ($1,$2,$3,'Counter 1')`, registerID, tenantID, storeID)
+		mustExec(`INSERT INTO register_sessions (id,tenant_id,store_id,register_id,register_name_snapshot,opened_by,opener_name_snapshot,opening_cash_minor)
+			VALUES ($1,$2,$3,$4,'Counter 1',$5,'Cashier',0)`, shiftID, tenantID, storeID, registerID, userID)
+		return registerID, shiftID
+	}
+	registerA, shiftA := openShift(tenantA, storeA)
+	registerB, _ := openShift(tenantB, storeB)
 	svc := NewService(NewPostgresRepository(appPool))
-	input := CheckoutInput{IdempotencyKey: "cash-sale-001", CashReceivedMinor: 500,
+
+	cart := []CartItem{{VariantID: variantA, Quantity: 1}}
+	if _, _, err := svc.Checkout(ctx, tenantA, userID, "Cashier", CheckoutInput{IdempotencyKey: "no-counter-01", CashReceivedMinor: 500, Items: cart}); !errors.Is(err, register.ErrRegisterRequired) {
+		t.Fatalf("sale without a counter: %v", err)
+	}
+	closedCounter := id.New(id.Register)
+	mustExec(`INSERT INTO registers (id,tenant_id,store_id,name) VALUES ($1,$2,$3,'Counter 2')`, closedCounter, tenantA, storeA)
+	if _, _, err := svc.Checkout(ctx, tenantA, userID, "Cashier", CheckoutInput{RegisterID: closedCounter, IdempotencyKey: "no-shift-001", CashReceivedMinor: 500, Items: cart}); !errors.Is(err, register.ErrNoOpenShift) {
+		t.Fatalf("sale on a counter without an open shift: %v", err)
+	}
+	if _, _, err := svc.Checkout(ctx, tenantA, userID, "Cashier", CheckoutInput{RegisterID: registerB, IdempotencyKey: "other-counter1", CashReceivedMinor: 500, Items: cart}); !errors.Is(err, register.ErrRegisterNotFound) {
+		t.Fatalf("sale on another workspace's counter: %v", err)
+	}
+	var orderTotal int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM orders WHERE tenant_id=$1`, tenantA).Scan(&orderTotal); err != nil || orderTotal != 0 {
+		t.Fatalf("refused sales left orders=%d err=%v", orderTotal, err)
+	}
+
+	input := CheckoutInput{RegisterID: registerA, IdempotencyKey: "cash-sale-001", CashReceivedMinor: 500,
 		Items: []CartItem{{VariantID: variantA, Quantity: 2}}}
 	sale, created, err := svc.Checkout(ctx, tenantA, userID, "Cashier", input)
 	if err != nil || !created || sale.GrandTotalMinor != 300 || sale.ChangeMinor != 200 || len(sale.Items) != 1 {
 		t.Fatalf("sale=%+v created=%v err=%v", sale, created, err)
+	}
+	if sale.ShiftID != shiftA || sale.RegisterName != "Counter 1" {
+		t.Fatalf("sale not linked to its shift: shift=%q register=%q", sale.ShiftID, sale.RegisterName)
 	}
 	var stock, movementCount, paymentCount int
 	if err := pool.QueryRow(ctx, `SELECT quantity FROM stock_levels WHERE tenant_id=$1 AND variant_id=$2`, tenantA, variantA).Scan(&stock); err != nil || stock != 3 {
@@ -167,7 +200,7 @@ func TestCashCheckoutPostgres(t *testing.T) {
 		t.Fatalf("prior workspace day included sale: %+v err=%v", list, err)
 	}
 	// Insufficient stock never persists an order, payment, or movement.
-	_, _, err = svc.Checkout(ctx, tenantA, userID, "Cashier", CheckoutInput{IdempotencyKey: "cash-sale-002", CashReceivedMinor: 10000,
+	_, _, err = svc.Checkout(ctx, tenantA, userID, "Cashier", CheckoutInput{RegisterID: registerA, IdempotencyKey: "cash-sale-002", CashReceivedMinor: 10000,
 		Items: []CartItem{{VariantID: variantA, Quantity: 4}}})
 	if e, ok := asSaleError(err); !ok || e.Code != "insufficient_stock" {
 		t.Fatalf("insufficient stock error=%v", err)
@@ -180,7 +213,7 @@ func TestCashCheckoutPostgres(t *testing.T) {
 	if _, err := svc.Receipt(ctx, tenantB, sale.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("cross-tenant receipt error=%v", err)
 	}
-	_, _, err = svc.Checkout(ctx, tenantB, userID, "Cashier", CheckoutInput{IdempotencyKey: "other-tenant-001", CashReceivedMinor: 500,
+	_, _, err = svc.Checkout(ctx, tenantB, userID, "Cashier", CheckoutInput{RegisterID: registerB, IdempotencyKey: "other-tenant-001", CashReceivedMinor: 500,
 		Items: []CartItem{{VariantID: variantA, Quantity: 1}}})
 	if e, ok := asSaleError(err); !ok || e.Code != "variant_not_found" {
 		t.Fatalf("cross-tenant checkout error=%v", err)
@@ -192,7 +225,7 @@ func TestCashCheckoutPostgres(t *testing.T) {
 		wg.Add(1)
 		go func(key string) {
 			defer wg.Done()
-			_, _, err := svc.Checkout(context.Background(), tenantA, userID, "Cashier", CheckoutInput{IdempotencyKey: key, CashReceivedMinor: 1000,
+			_, _, err := svc.Checkout(context.Background(), tenantA, userID, "Cashier", CheckoutInput{RegisterID: registerA, IdempotencyKey: key, CashReceivedMinor: 1000,
 				Items: []CartItem{{VariantID: concurrentVariant, Quantity: 4}}})
 			results <- err
 		}(key)
@@ -227,7 +260,7 @@ func TestCashCheckoutPostgres(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			sale, created, err := svc.Checkout(context.Background(), tenantA, userID, "Cashier",
-				CheckoutInput{IdempotencyKey: "same-request-001", CashReceivedMinor: 150,
+				CheckoutInput{RegisterID: registerA, IdempotencyKey: "same-request-001", CashReceivedMinor: 150,
 					Items: []CartItem{{VariantID: concurrentVariant, Quantity: 1}}})
 			retries <- checkoutResult{sale, created, err}
 		}()
@@ -266,8 +299,9 @@ func TestCashCheckoutPostgres(t *testing.T) {
 	mustExec(`INSERT INTO stores (id,tenant_id,name,is_default) VALUES ($1,$2,'Branch',false)`, branchID, tenantA)
 	mustExec(`INSERT INTO stock_levels (id,tenant_id,store_id,variant_id,quantity) VALUES ($1,$2,$3,$4,2)`, id.New(id.StockLevel), tenantA, branchID, variantA)
 	mustExec(`INSERT INTO tenant_memberships (id,tenant_id,user_id,role,status) VALUES ($1,$2,$3,'member','active')`, id.New(id.TenantMembership), tenantA, userID)
+	branchRegister, _ := openShift(tenantA, branchID)
 	branchCtx := store.WithSelection(ctx, branchID, userID, "member")
-	branchInput := CheckoutInput{StoreID: branchID, IdempotencyKey: "branch-sale-001", CashReceivedMinor: 1000, Items: []CartItem{{VariantID: variantA, Quantity: 1}}}
+	branchInput := CheckoutInput{StoreID: branchID, RegisterID: branchRegister, IdempotencyKey: "branch-sale-001", CashReceivedMinor: 1000, Items: []CartItem{{VariantID: variantA, Quantity: 1}}}
 	if _, _, err := svc.Checkout(branchCtx, tenantA, userID, "Cashier", branchInput); err != store.ErrAccess {
 		t.Fatalf("unassigned cashier sold branch stock: %v", err)
 	}
@@ -287,7 +321,7 @@ func TestCashCheckoutPostgres(t *testing.T) {
 	if err != nil || branchReceipt.StoreName != "Branch" {
 		t.Fatalf("store receipt snapshot=%+v err=%v", branchReceipt, err)
 	}
-	if _, _, err := svc.Checkout(store.WithSelection(ctx, storeB, userID, "member"), tenantA, userID, "Cashier", CheckoutInput{StoreID: storeB, IdempotencyKey: "wrong-store-001", CashReceivedMinor: 1000, Items: []CartItem{{VariantID: variantA, Quantity: 1}}}); err != store.ErrNotFound {
+	if _, _, err := svc.Checkout(store.WithSelection(ctx, storeB, userID, "member"), tenantA, userID, "Cashier", CheckoutInput{StoreID: storeB, RegisterID: registerB, IdempotencyKey: "wrong-store-001", CashReceivedMinor: 1000, Items: []CartItem{{VariantID: variantA, Quantity: 1}}}); err != store.ErrNotFound {
 		t.Fatalf("cross-tenant store sale: %v", err)
 	}
 	mustExec(`DELETE FROM store_access WHERE tenant_id=$1 AND store_id=$2 AND user_id=$3`, tenantA, branchID, userID)

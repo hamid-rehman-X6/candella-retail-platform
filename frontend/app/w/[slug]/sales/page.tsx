@@ -6,7 +6,10 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
 import { useStoreSelection } from "@/lib/use-store-selection";
+import { useCounter } from "@/lib/use-counter";
 import { Select } from "@/components/ui/select";
+import { ShiftPanel } from "@/components/app/shift-panel";
+import { ApiError } from "@/lib/api";
 import { listStock, type StockItem } from "@/lib/catalog-api";
 import { formatMoney, minorDigits, parseMoney } from "@/lib/money";
 import { checkout } from "@/lib/sales-api";
@@ -27,6 +30,8 @@ export default function SalesPage() {
     select: selectStore,
     error: storeError,
   } = useStoreSelection(current.id);
+  const counter = useCounter(current.id, storeId);
+  const shiftOpen = !!counter.register?.openSession;
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
   const requestKey = useRef<string | null>(null);
@@ -166,6 +171,7 @@ export default function SalesPage() {
   const change = cashMinor === null ? null : cashMinor - total;
   const canSell =
     !!storeId &&
+    shiftOpen &&
     cart.length > 0 &&
     Number.isSafeInteger(total) &&
     total <= 1_000_000_000_000 &&
@@ -182,6 +188,7 @@ export default function SalesPage() {
     try {
       const { sale } = await checkout(current.id, {
         storeId,
+        registerId: counter.registerId,
         idempotencyKey: requestKey.current,
         items: cart.map(({ item, quantity }) => ({
           variantId: item.variantId,
@@ -193,6 +200,9 @@ export default function SalesPage() {
     } catch (e) {
       // Keep the same key for retry if the network failed after the sale committed.
       setError(e instanceof Error ? e.message : "Checkout failed. Try again.");
+      // The shift was closed from another screen: show the counter as it is now.
+      if (e instanceof ApiError && e.code === "shift_required")
+        void counter.refresh();
       setBusy(false);
     }
   }
@@ -211,12 +221,20 @@ export default function SalesPage() {
             Search or scan a product, take cash, and open a receipt.
           </p>
         </div>
-        <Link
-          href={workspacePath(current.slug, "/sales/history")}
-          className="rounded-xl border border-line px-4 py-2.5 text-sm font-medium hover:border-accent/50"
-        >
-          Sales history
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href={workspacePath(current.slug, "/sales/shifts")}
+            className="rounded-xl border border-line px-4 py-2.5 text-sm font-medium hover:border-accent/50"
+          >
+            Shifts
+          </Link>
+          <Link
+            href={workspacePath(current.slug, "/sales/history")}
+            className="rounded-xl border border-line px-4 py-2.5 text-sm font-medium hover:border-accent/50"
+          >
+            Sales history
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -227,28 +245,61 @@ export default function SalesPage() {
           {error}
         </p>
       )}
-      <label className="block max-w-xs text-sm font-medium">
-        Selling from
-        <Select
-          ariaLabel="Selling store"
-          className={`${field} mt-2`}
-          value={storeId}
-          onValueChange={changeStore}
-          disabled={busy}
-          options={[
-            ...(!storeId ? [{ value: "", label: "Select a store" }] : []),
-            ...stores
-              .filter((store) => store.accessible)
-              .map((store) => ({
-                value: store.id,
-                label: `${store.name}${store.isDefault ? " (default)" : ""}`,
-              })),
-          ]}
+      <div className="flex flex-wrap items-start gap-4">
+        <label className="block w-full max-w-xs text-sm font-medium">
+          Selling from
+          <Select
+            ariaLabel="Selling store"
+            className={`${field} mt-2`}
+            value={storeId}
+            onValueChange={changeStore}
+            disabled={busy}
+            options={[
+              ...(!storeId ? [{ value: "", label: "Select a store" }] : []),
+              ...stores
+                .filter((store) => store.accessible)
+                .map((store) => ({
+                  value: store.id,
+                  label: `${store.name}${store.isDefault ? " (default)" : ""}`,
+                })),
+            ]}
+          />
+          <span className="mt-1 block text-xs text-muted">
+            Cart clears when you switch stores so stock is never mixed.
+          </span>
+        </label>
+        {storeId && counter.registers.length > 0 && (
+          <label className="block w-full max-w-xs text-sm font-medium">
+            Counter
+            <Select
+              ariaLabel="Counter"
+              className={`${field} mt-2`}
+              value={counter.registerId}
+              onValueChange={counter.select}
+              disabled={busy}
+              options={counter.registers.map((register) => ({
+                value: register.id,
+                label: `${register.name}${register.openSession ? " (open)" : ""}`,
+              }))}
+            />
+            <span className="mt-1 block text-xs text-muted">
+              This device remembers its counter. Cash goes into that drawer.
+            </span>
+          </label>
+        )}
+      </div>
+      {counter.error && (
+        <p role="alert" className="text-sm text-danger-ink">
+          {counter.error}
+        </p>
+      )}
+      {storeId && counter.register && (
+        <ShiftPanel
+          storeId={storeId}
+          register={counter.register}
+          onChanged={() => void counter.refresh()}
         />
-        <span className="mt-1 block text-xs text-muted">
-          Cart clears when you switch stores so stock is never mixed.
-        </span>
-      </label>
+      )}
       {storeError && (
         <p role="alert" className="text-sm text-danger-ink">
           {storeError}
@@ -473,6 +524,11 @@ export default function SalesPage() {
           >
             {busy ? "Completing sale…" : "Confirm cash sale"}
           </button>
+          {!shiftOpen && counter.register && (
+            <p className="mt-3 text-xs text-danger-ink">
+              Open a shift on {counter.register.name} before taking cash.
+            </p>
+          )}
           <p className="mt-3 text-xs text-muted">
             Prices and stock are checked again when you confirm. The receipt
             shows the final charged amounts.
