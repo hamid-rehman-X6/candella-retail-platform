@@ -24,6 +24,7 @@ import (
 	"candella-ecosystem/backend/internal/auth"
 	"candella-ecosystem/backend/internal/tenant"
 	"candella-ecosystem/backend/migrations"
+	"candella-ecosystem/backend/pkg/database"
 	"candella-ecosystem/backend/pkg/id"
 )
 
@@ -74,6 +75,13 @@ func TestStoreManagementPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
+	// Seed as the login; run the code under test as the API role, so RLS and
+	// grants apply exactly as they do in the server.
+	appPool, err := database.Connect(ctx, dsn, database.AppRole)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer appPool.Close()
 	mustExec := func(query string, args ...any) {
 		t.Helper()
 		if _, err := pool.Exec(ctx, query, args...); err != nil {
@@ -92,7 +100,7 @@ func TestStoreManagementPostgres(t *testing.T) {
 	mustExec(`INSERT INTO stores (id,tenant_id,name,is_default) VALUES ($1,$2,'Main',true),($3,$4,'Main',true)`, defaultA, tenantA, defaultB, tenantB)
 	mustExec(`INSERT INTO tenant_memberships (id,tenant_id,user_id,role,status) VALUES ($1,$2,$3,'owner','active'),($4,$5,$6,'member','active')`, id.New(id.TenantMembership), tenantA, ownerID, id.New(id.TenantMembership), tenantA, memberID)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h := NewHandler(pool, audit.NewRecorder(pool, log), log)
+	h := NewHandler(appPool, audit.NewRecorder(appPool, log), log)
 	call := func(method, body, actingTenant, actingUser, role, storeID string, fn func(http.ResponseWriter, *http.Request)) *httptest.ResponseRecorder {
 		t.Helper()
 		req := httptest.NewRequest(method, "/stores", strings.NewReader(body))

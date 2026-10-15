@@ -18,9 +18,10 @@ type repoPostgres struct {
 
 // NewPostgresRepository wires the platform repository to a pgx pool.
 //
-// This will become a *separate* pool running as the `candella_platform` database
-// role once Row-Level Security lands, so cross-tenant reads are granted by an
-// explicit DB role rather than by an escape hatch inside the RLS policies.
+// The server passes a separate pool running as the `candella_platform` database
+// role, so cross-tenant reads are granted by an explicit DB role rather than by
+// an escape hatch inside the RLS policies. cmd/admin passes the operator's own
+// login, which grant and revoke need.
 func NewPostgresRepository(db *pgxpool.Pool) Repository {
 	return &repoPostgres{db: db}
 }

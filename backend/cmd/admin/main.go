@@ -48,7 +48,9 @@ func run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	pool, err := database.Connect(ctx, cfg.DatabaseURL)
+	// Granting platform access is an operator action, so it runs with the
+	// login's own privileges rather than either API role.
+	pool, err := database.Connect(ctx, cfg.DatabaseURL, "")
 	if err != nil {
 		return fmt.Errorf("connecting to the database: %w", err)
 	}
