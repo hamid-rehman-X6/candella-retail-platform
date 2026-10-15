@@ -12,6 +12,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	// Embeds the IANA timezone database so workspace zones such as Asia/Karachi
+	// resolve on minimal container images that ship without tzdata.
+	_ "time/tzdata"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"

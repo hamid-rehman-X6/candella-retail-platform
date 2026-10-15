@@ -50,3 +50,31 @@ func TestCreateCurrency(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateTimezone(t *testing.T) {
+	tests := []struct {
+		name     string
+		timezone string
+		want     string
+	}{
+		{"defaults to Pakistan time when omitted", "", "Asia/Karachi"},
+		{"falls back from an unknown zone", "Mars/Olympus", "Asia/Karachi"},
+		{"does not store the server's own zone", "Local", "Asia/Karachi"},
+		{"keeps a valid explicit zone", " Asia/Dubai ", "Asia/Dubai"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeRepo{}
+			_, err := NewService(repo).Create(context.Background(), "usr_test", createRequest{
+				Name:     "Lahore Mart",
+				Timezone: tc.timezone,
+			})
+			if err != nil {
+				t.Fatalf("Create: %v", err)
+			}
+			if repo.created.Timezone != tc.want {
+				t.Fatalf("timezone = %q, want %q", repo.created.Timezone, tc.want)
+			}
+		})
+	}
+}

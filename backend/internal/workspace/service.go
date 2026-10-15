@@ -4,12 +4,17 @@ import (
 	"context"
 	"crypto/rand"
 	"strings"
+	"time"
 )
 
 // DefaultCurrency is used when a workspace is created without a currency.
 // Candella serves Pakistani retailers; keep in sync with tenants.currency_code's
 // column default (migration 0023).
 const DefaultCurrency = "PKR"
+
+// DefaultTimezone is used when a workspace is created without a valid IANA
+// timezone. Keep in sync with tenants.timezone's column default (migration 0024).
+const DefaultTimezone = "Asia/Karachi"
 
 // validIndustries mirrors the CHECK constraint on tenants.industry_type.
 var validIndustries = map[string]bool{
@@ -47,8 +52,10 @@ func (s *Service) Create(ctx context.Context, ownerUserID string, req createRequ
 		currency = DefaultCurrency
 	}
 	timezone := strings.TrimSpace(req.Timezone)
-	if timezone == "" {
-		timezone = "UTC"
+	// An unknown zone would be stored and later break sales search, and "Local"
+	// would mean whatever zone the server happens to run in.
+	if _, err := time.LoadLocation(timezone); err != nil || timezone == "" || timezone == "Local" {
+		timezone = DefaultTimezone
 	}
 
 	slug, err := s.uniqueSlug(ctx, name)

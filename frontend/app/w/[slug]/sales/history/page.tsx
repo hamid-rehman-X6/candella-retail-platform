@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Search } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
+import { formatDateTime } from "@/lib/datetime";
 import { formatMoney, parseMoney } from "@/lib/money";
 import {
   listSales,
@@ -227,11 +228,7 @@ export default function SalesHistoryPage() {
             {sales.map((sale) => (
               <tr key={sale.id}>
                 <td className="p-4">
-                  {new Intl.DateTimeFormat(undefined, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                    timeZone: current.timezone,
-                  }).format(new Date(sale.createdAt))}
+                  {formatDateTime(sale.createdAt, current.timezone)}
                 </td>
                 <td className="p-4 font-mono">{sale.orderNumber}</td>
                 <td className="p-4">{sale.storeName}</td>
