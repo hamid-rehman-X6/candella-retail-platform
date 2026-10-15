@@ -101,6 +101,9 @@ func (s *Service) VerifyEmail(ctx context.Context, req emailCodeRequest) (*login
 	if err := s.checkCode(ctx, user.ID, purposeEmailVerify, req.Code); err != nil {
 		return nil, err
 	}
+	if !user.IsActive() {
+		return nil, ErrAccountDisabled
+	}
 
 	now := time.Now()
 	if err := s.repo.SetEmailVerified(ctx, user.ID, now); err != nil {
@@ -153,6 +156,11 @@ func (s *Service) Login(ctx context.Context, req loginRequest) (*loginResult, er
 	if !user.IsEmailVerified() {
 		return nil, ErrEmailNotVerified
 	}
+	// Checked only after the password, so the disabled state isn't revealed to
+	// someone who doesn't know it; and before the 2FA challenge is issued.
+	if !user.IsActive() {
+		return nil, ErrAccountDisabled
+	}
 
 	if user.MFAEnabled {
 		token := signChallenge(s.challengeKey, user.ID, purposeMFALogin, 5*time.Minute)
@@ -175,7 +183,8 @@ func (s *Service) Logout(ctx context.Context, rawToken string) error {
 }
 
 // Authenticate resolves a raw session token to its user (used by middleware).
-// Any problem (missing/expired/revoked session) is reported as ErrUnauthenticated.
+// Any problem (missing/expired/revoked session, or a disabled account) is
+// reported as ErrUnauthenticated, so disabling a user ends their live sessions.
 func (s *Service) Authenticate(ctx context.Context, rawToken string) (*User, error) {
 	if rawToken == "" {
 		return nil, ErrUnauthenticated
@@ -188,7 +197,7 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (*User, err
 		return nil, ErrUnauthenticated
 	}
 	user, err := s.repo.GetUserByID(ctx, sess.UserID)
-	if err != nil {
+	if err != nil || !user.IsActive() {
 		return nil, ErrUnauthenticated
 	}
 	return user, nil
@@ -197,8 +206,12 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (*User, err
 // ---- internal helpers -----------------------------------------------------
 
 // startSession creates a session and records the login. Shared by password login
-// and the 2FA / OAuth completion paths.
+// and the 2FA / OAuth completion paths. The status check here also covers an
+// account disabled between the password step and the 2FA step.
 func (s *Service) startSession(ctx context.Context, user *User) (*loginResult, error) {
+	if !user.IsActive() {
+		return nil, ErrAccountDisabled
+	}
 	raw, expires, err := s.createSession(ctx, user.ID)
 	if err != nil {
 		return nil, err

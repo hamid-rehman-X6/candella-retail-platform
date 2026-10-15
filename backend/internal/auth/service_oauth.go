@@ -103,6 +103,9 @@ func (s *Service) CompleteGoogleLogin(ctx context.Context, code, state string) (
 // still owes us a code, exactly as password login requires. (A brand-new
 // account can't have 2FA yet, so the sign-up path always lands in a session.)
 func (s *Service) finishGoogleLogin(ctx context.Context, user *User, isNew bool) (*googleResult, error) {
+	if !user.IsActive() {
+		return nil, ErrAccountDisabled
+	}
 	if user.MFAEnabled {
 		token := signChallenge(s.challengeKey, user.ID, purposeMFALogin, 5*time.Minute)
 		return &googleResult{
