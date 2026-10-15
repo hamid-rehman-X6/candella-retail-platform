@@ -22,6 +22,10 @@ type Config struct {
 	AllowedCORS string
 	AppBaseURL  string // public origin of the frontend (reset links, OAuth redirects)
 
+	// Reverse proxies (comma-separated IPs/CIDRs) whose X-Forwarded-For is
+	// trusted. Blank = clients connect directly and forwarding headers are ignored.
+	TrustedProxies string
+
 	// Sessions / cookies
 	SessionCookieName     string
 	SessionTTL            time.Duration
@@ -73,6 +77,8 @@ func Load() Config {
 		RedisURL:    getenv("REDIS_URL", "redis://localhost:6381"),
 		AllowedCORS: getenv("ALLOWED_CORS_ORIGIN", "http://localhost:3000"),
 		AppBaseURL:  getenv("APP_BASE_URL", "http://localhost:3000"),
+
+		TrustedProxies: getenv("TRUSTED_PROXIES", ""),
 
 		SessionCookieName:     getenv("SESSION_COOKIE_NAME", "candella_session"),
 		SessionTTL:            time.Duration(getenvInt("SESSION_TTL_HOURS", 720)) * time.Hour,

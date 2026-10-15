@@ -3,6 +3,8 @@ package audit
 import (
 	"context"
 	"net/http"
+
+	appmiddleware "candella-ecosystem/backend/internal/middleware"
 )
 
 // RequestInfo is the transport detail an audit entry needs. Capturing it once in
@@ -16,7 +18,8 @@ type RequestInfo struct {
 type reqCtxKey struct{}
 
 // Middleware records the client IP and user agent for the rest of the request.
-// Mount it early — after chi's RealIP, so IP reflects any trusted proxy headers.
+// Mount it after the ClientIP middleware, so the audited IP is the same one the
+// rate limiter sees and forwarding headers are only honoured from trusted proxies.
 func Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		info := RequestInfo{IP: clientIP(r), UserAgent: r.UserAgent()}
@@ -31,23 +34,12 @@ func RequestFromContext(ctx context.Context) RequestInfo {
 	return info
 }
 
-// clientIP strips the port that RemoteAddr carries, since audit_logs.ip_address
-// is an INET column and would reject "127.0.0.1:54321".
+// clientIP returns a bare address, or "" (stored as NULL), since
+// audit_logs.ip_address is an INET column and rejects a port or an IPv6 zone.
 func clientIP(r *http.Request) string {
-	addr := r.RemoteAddr
-	// Walk back to the last colon: IPv6 addresses contain several.
-	for i := len(addr) - 1; i >= 0; i-- {
-		if addr[i] == ':' {
-			return trimBrackets(addr[:i])
-		}
+	ip := appmiddleware.ClientIPOf(r).WithZone("")
+	if !ip.IsValid() {
+		return ""
 	}
-	return trimBrackets(addr)
-}
-
-// trimBrackets removes the [] that wrap an IPv6 host in "[::1]:8080".
-func trimBrackets(host string) string {
-	if len(host) >= 2 && host[0] == '[' && host[len(host)-1] == ']' {
-		return host[1 : len(host)-1]
-	}
-	return host
+	return ip.String()
 }
