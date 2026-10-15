@@ -8,6 +8,17 @@ export type SaleItem = {
   quantity: number;
   unitPriceMinor: number;
   lineTotalMinor: number;
+  /** Units already taken back; quantity - returnedQuantity can still be returned. */
+  returnedQuantity: number;
+};
+
+export type ReturnSummary = {
+  id: string;
+  returnNumber: string;
+  refundMinor: number;
+  processorName: string;
+  reason: string;
+  createdAt: string;
 };
 
 export type Sale = {
@@ -28,6 +39,9 @@ export type Sale = {
   cashReceivedMinor: number;
   changeMinor: number;
   createdAt: string;
+  /** Returns against this sale, oldest first. The sale itself never changes. */
+  returns: ReturnSummary[];
+  refundedMinor: number;
 };
 
 export type SaleSummary = Pick<
@@ -78,3 +92,57 @@ export const checkout = (tenantId: string, input: CheckoutInput) =>
 
 export const getSale = (tenantId: string, orderId: string) =>
   apiGet<{ sale: Sale }>(`/sales/${encodeURIComponent(orderId)}`, tenantId);
+
+export type ReturnItem = {
+  variantId: string;
+  productName: string;
+  variantName: string;
+  sku: string;
+  quantity: number;
+  unitPriceMinor: number;
+  lineRefundMinor: number;
+};
+
+export type SaleReturn = {
+  id: string;
+  returnNumber: string;
+  orderId: string;
+  orderNumber: string;
+  storeId: string;
+  storeName: string;
+  registerName: string;
+  shiftId: string;
+  reason: string;
+  refundMethod: "cash";
+  refundMinor: number;
+  currencyCode: string;
+  processedBy: string;
+  processorName: string;
+  items: ReturnItem[];
+  createdAt: string;
+};
+
+export type ReturnInput = {
+  storeId: string;
+  registerId: string;
+  idempotencyKey: string;
+  reason: string;
+  items: { variantId: string; quantity: number }[];
+};
+
+export const createReturn = (
+  tenantId: string,
+  orderId: string,
+  input: ReturnInput,
+) =>
+  apiPost<{ return: SaleReturn }>(
+    `/sales/${encodeURIComponent(orderId)}/returns`,
+    input,
+    tenantId,
+  );
+
+export const getReturn = (tenantId: string, returnId: string) =>
+  apiGet<{ return: SaleReturn }>(
+    `/returns/${encodeURIComponent(returnId)}`,
+    tenantId,
+  );

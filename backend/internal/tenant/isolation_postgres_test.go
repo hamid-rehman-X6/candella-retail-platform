@@ -28,6 +28,7 @@ var tenantTables = []string{
 	"stores", "store_access", "products", "product_variants", "stock_levels",
 	"stock_movements", "document_sequences", "orders", "order_items", "payments",
 	"suppliers", "supplier_variants", "catalog_import_batches", "registers", "register_sessions",
+	"returns", "return_items",
 }
 
 // controlPlaneTables carry a tenant_id but are read before a tenant is in scope:
@@ -116,7 +117,7 @@ func setupIsolation(t *testing.T) *isolationEnv {
 }
 
 type seededTenant struct {
-	tenantID, userID, storeID, productID, variantID, orderID, supplierID, registerID, shiftID string
+	tenantID, userID, storeID, productID, variantID, orderID, supplierID, registerID, shiftID, returnID string
 }
 
 // seedTenant writes one row of every tenant table for a new tenant, as the
@@ -127,7 +128,7 @@ func seedTenant(t *testing.T, env *isolationEnv) seededTenant {
 		tenantID: id.New(id.Tenant), userID: id.New(id.User), storeID: id.New(id.Store),
 		productID: id.New(id.Product), variantID: id.New(id.ProductVariant),
 		orderID: id.New(id.Order), supplierID: id.New(id.Supplier),
-		registerID: id.New(id.Register), shiftID: id.New(id.RegisterSession),
+		registerID: id.New(id.Register), shiftID: id.New(id.RegisterSession), returnID: id.New(id.Return),
 	}
 	statements := []struct {
 		query string
@@ -168,6 +169,13 @@ func seedTenant(t *testing.T, env *isolationEnv) seededTenant {
 		    quantity_before, quantity_after, order_id)
 		  VALUES ($1, $2, $3, $4, 'sale', -1, 10, 9, $5)`,
 			[]any{id.New(id.StockMovement), s.tenantID, s.storeID, s.variantID, s.orderID}},
+		{`INSERT INTO returns (id, tenant_id, store_id, order_id, register_session_id, return_number,
+		    idempotency_key, request_hash, reason, refund_minor, currency_code, created_by, processor_name_snapshot)
+		  VALUES ($1, $2, $3, $4, $5, 'RET-000001', $1, repeat('r', 64), 'Wrong size', 15000, 'PKR', $6, 'Owner')`,
+			[]any{s.returnID, s.tenantID, s.storeID, s.orderID, s.shiftID, s.userID}},
+		{`INSERT INTO return_items (id, tenant_id, return_id, order_id, variant_id, quantity, unit_price_minor, line_refund_minor)
+		  VALUES ($1, $2, $3, $4, $5, 1, 15000, 15000)`,
+			[]any{id.New(id.ReturnItem), s.tenantID, s.returnID, s.orderID, s.variantID}},
 		{`INSERT INTO suppliers (id, tenant_id, name) VALUES ($1, $2, 'Supplier')`, []any{s.supplierID, s.tenantID}},
 		{`INSERT INTO supplier_variants (tenant_id, supplier_id, variant_id) VALUES ($1, $2, $3)`,
 			[]any{s.tenantID, s.supplierID, s.variantID}},
@@ -373,6 +381,12 @@ func TestTenantIsolation(t *testing.T) {
 			VALUES ($1, $2, $3, $4, 'X', $5, 'X', 0)`,
 			id.New(id.RegisterSession), a.tenantID, a.storeID, b.registerID, a.userID)
 		expectCode(t, err, foreignKey, "shift on tenant B's counter")
+		_, err = inTenant(env, a.tenantID, `
+			INSERT INTO returns (id, tenant_id, store_id, order_id, register_session_id, return_number,
+			  idempotency_key, request_hash, reason, refund_minor, currency_code, created_by, processor_name_snapshot)
+			VALUES ($1, $2, $3, $4, $5, 'RET-999999', $1, repeat('x', 64), 'Planted', 1, 'PKR', $6, 'X')`,
+			id.New(id.Return), a.tenantID, a.storeID, b.orderID, a.shiftID, a.userID)
+		expectCode(t, err, foreignKey, "refund against tenant B's sale")
 	})
 
 	t.Run("ledgers and the audit trail are append-only for the API", func(t *testing.T) {
@@ -383,6 +397,8 @@ func TestTenantIsolation(t *testing.T) {
 			`DELETE FROM orders WHERE tenant_id = $1`,
 			`UPDATE payments SET amount_minor = 0 WHERE tenant_id = $1`,
 			`DELETE FROM order_items WHERE tenant_id = $1`,
+			`UPDATE returns SET refund_minor = 1 WHERE tenant_id = $1`,
+			`DELETE FROM return_items WHERE tenant_id = $1`,
 			`DELETE FROM audit_logs WHERE tenant_id = $1`,
 			`UPDATE audit_logs SET action = 'x' WHERE tenant_id = $1`,
 			`SELECT count(*) FROM audit_logs WHERE tenant_id = $1`,

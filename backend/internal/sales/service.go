@@ -32,6 +32,8 @@ type Repository interface {
 	Create(context.Context, string, string, string, CheckoutInput) (*Sale, bool, error)
 	Find(context.Context, string, string) (*Sale, error)
 	Search(context.Context, string, SalesFilter) ([]SaleSummary, bool, error)
+	CreateReturn(ctx context.Context, tenantID, userID, processorName, orderID string, in ReturnInput) (*Return, bool, error)
+	FindReturn(ctx context.Context, tenantID, returnID string) (*Return, error)
 }
 
 type Service struct{ repo Repository }
@@ -91,7 +93,7 @@ func (s *Service) Search(ctx context.Context, tenantID string, filter SalesFilte
 }
 
 func (s *Service) Receipt(ctx context.Context, tenantID, orderID string) (*Sale, error) {
-	if !strings.HasPrefix(orderID, "ord_") || len(orderID) != 16 {
+	if !validOrderID(orderID) {
 		return nil, ErrNotFound
 	}
 	return s.repo.Find(ctx, tenantID, orderID)

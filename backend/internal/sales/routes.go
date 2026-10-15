@@ -13,5 +13,7 @@ func Routes(r chi.Router, h *Handler, requireAuth, requireTenant func(http.Handl
 		g.Post("/sales", h.Checkout)
 		g.Get("/sales", h.Search)
 		g.Get("/sales/{orderID}", h.Receipt)
+		g.Post("/sales/{orderID}/returns", h.Return)
+		g.Get("/returns/{returnID}", h.ReturnReceipt)
 	})
 }

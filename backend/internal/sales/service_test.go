@@ -11,9 +11,10 @@ import (
 )
 
 type fakeRepository struct {
-	called bool
-	input  CheckoutInput
-	filter SalesFilter
+	called   bool
+	input    CheckoutInput
+	filter   SalesFilter
+	returned ReturnInput
 }
 
 func (f *fakeRepository) Create(_ context.Context, _, _, _ string, in CheckoutInput) (*Sale, bool, error) {
@@ -26,6 +27,53 @@ func (f *fakeRepository) Find(context.Context, string, string) (*Sale, error) {
 func (f *fakeRepository) Search(_ context.Context, _ string, filter SalesFilter) ([]SaleSummary, bool, error) {
 	f.called, f.filter = true, filter
 	return []SaleSummary{}, false, nil
+}
+
+func (f *fakeRepository) CreateReturn(_ context.Context, _, _, _, _ string, in ReturnInput) (*Return, bool, error) {
+	f.called, f.returned = true, in
+	return &Return{}, true, nil
+}
+func (f *fakeRepository) FindReturn(context.Context, string, string) (*Return, error) {
+	f.called = true
+	return &Return{}, nil
+}
+
+func TestReturnValidationAndStableLockOrder(t *testing.T) {
+	const order = "ord_AAAAAAAAAAAA"
+	items := []CartItem{{VariantID: "var_BBBBBBBBBBBB", Quantity: 1}, {VariantID: "var_AAAAAAAAAAAA", Quantity: 2}}
+	valid := ReturnInput{IdempotencyKey: "return-123", Reason: "Wrong size", Items: items}
+	cases := []struct {
+		name    string
+		orderID string
+		input   ReturnInput
+		want    error
+	}{
+		{"malformed sale", "ord_x", valid, ErrNotFound},
+		{"no items", order, ReturnInput{IdempotencyKey: "return-123", Reason: "Wrong size"}, ErrReturnInvalid},
+		{"short key", order, ReturnInput{IdempotencyKey: "short", Reason: "Wrong size", Items: items}, ErrReturnInvalid},
+		{"zero quantity", order, ReturnInput{IdempotencyKey: "return-123", Reason: "Wrong size", Items: []CartItem{{VariantID: items[0].VariantID}}}, ErrReturnInvalid},
+		{"duplicate line", order, ReturnInput{IdempotencyKey: "return-123", Reason: "Wrong size", Items: []CartItem{items[0], items[0]}}, ErrReturnInvalid},
+		{"no reason", order, ReturnInput{IdempotencyKey: "return-123", Reason: "  ", Items: items}, ErrReturnReason},
+		{"reason too short", order, ReturnInput{IdempotencyKey: "return-123", Reason: "no", Items: items}, ErrReturnReason},
+		{"reason too long", order, ReturnInput{IdempotencyKey: "return-123", Reason: strings.Repeat("x", 501), Items: items}, ErrReturnReason},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeRepository{}
+			_, _, err := NewService(repo).Return(context.Background(), "tenant", "user", "Owner", tc.orderID, tc.input)
+			if err != tc.want || repo.called {
+				t.Fatalf("err=%v called=%v, want %v and no repository call", err, repo.called, tc.want)
+			}
+		})
+	}
+	repo := &fakeRepository{}
+	_, _, err := NewService(repo).Return(context.Background(), "tenant", "user", "Owner", order, valid)
+	if err != nil || !repo.called || repo.returned.Items[0].VariantID != "var_AAAAAAAAAAAA" {
+		t.Fatalf("valid return not sorted before repository: err=%v input=%+v", err, repo.returned)
+	}
+	if _, err := NewService(&fakeRepository{}).ReturnReceipt(context.Background(), "tenant", order); err != ErrReturnNotFound {
+		t.Fatalf("a sale ID is not a return ID: %v", err)
+	}
 }
 
 func TestCheckoutValidationAndStableLockOrder(t *testing.T) {
@@ -112,5 +160,22 @@ func TestCheckoutRequiresWorkspaceRole(t *testing.T) {
 	h.Search(w, httptest.NewRequest(http.MethodGet, "/sales", nil).WithContext(r.Context()))
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("forbidden search got HTTP %d", w.Code)
+	}
+}
+
+func TestRefundsNeedOwnerOrAdmin(t *testing.T) {
+	for role, allowed := range map[string]bool{"owner": true, "admin": true, "member": false, "": false, "viewer": false} {
+		if canRefund(role) != allowed {
+			t.Fatalf("canRefund(%q) = %v, want %v", role, !allowed, allowed)
+		}
+	}
+	// A cashier is refused before the body is even read.
+	h := &Handler{}
+	r := httptest.NewRequest(http.MethodPost, "/sales/ord_AAAAAAAAAAAA/returns", strings.NewReader(`{}`))
+	r = r.WithContext(tenant.WithContext(r.Context(), &tenant.Context{TenantID: "tenant", Role: "member"}))
+	w := httptest.NewRecorder()
+	h.Return(w, r)
+	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "owners and admins") {
+		t.Fatalf("cashier refund got HTTP %d: %s", w.Code, w.Body.String())
 	}
 }

@@ -23,6 +23,8 @@ type SaleItem struct {
 	Quantity       int64  `json:"quantity"`
 	UnitPriceMinor int64  `json:"unitPriceMinor"`
 	LineTotalMinor int64  `json:"lineTotalMinor"`
+	// Units already taken back; Quantity - ReturnedQuantity can still be returned.
+	ReturnedQuantity int64 `json:"returnedQuantity"`
 }
 
 type Sale struct {
@@ -42,6 +44,9 @@ type Sale struct {
 	CashReceivedMinor int64      `json:"cashReceivedMinor"`
 	ChangeMinor       int64      `json:"changeMinor"`
 	CreatedAt         time.Time  `json:"createdAt"`
+	// Returns made against this sale, oldest first. The sale itself never changes.
+	Returns       []ReturnSummary `json:"returns"`
+	RefundedMinor int64           `json:"refundedMinor"`
 }
 
 type SaleSummary struct {

@@ -38,6 +38,28 @@ func withRegisterTx(ctx context.Context, db *pgxpool.Pool, tenantID string, fn f
 // sale and every committed sale is counted at closing. It runs inside a
 // tenant transaction that has already resolved storeID for the caller.
 func LockOpenShift(ctx context.Context, tx pgx.Tx, tenantID, storeID, registerID string) (string, error) {
+	return lockOpenShift(ctx, tx, tenantID, storeID, registerID, "FOR SHARE")
+}
+
+// LockOpenShiftForPayout is LockOpenShift for cash leaving the drawer. The lock
+// is exclusive, so two refunds cannot both spend the same cash and the drawer
+// total read with DrawerCash stays true until the caller commits.
+func LockOpenShiftForPayout(ctx context.Context, tx pgx.Tx, tenantID, storeID, registerID string) (string, error) {
+	return lockOpenShift(ctx, tx, tenantID, storeID, registerID, "FOR UPDATE")
+}
+
+// DrawerCash is the cash a shift's drawer should hold right now.
+func DrawerCash(ctx context.Context, tx pgx.Tx, tenantID, shiftID string) (int64, error) {
+	var opening int64
+	if err := tx.QueryRow(ctx, `SELECT opening_cash_minor FROM register_sessions WHERE tenant_id=$1 AND id=$2`,
+		tenantID, shiftID).Scan(&opening); err != nil {
+		return 0, err
+	}
+	t, err := shiftTotals(ctx, tx, tenantID, shiftID)
+	return opening + t.cashSales - t.cashRefunds, err
+}
+
+func lockOpenShift(ctx context.Context, tx pgx.Tx, tenantID, storeID, registerID, lock string) (string, error) {
 	if registerID == "" {
 		return "", ErrRegisterRequired
 	}
@@ -51,7 +73,7 @@ func LockOpenShift(ctx context.Context, tx pgx.Tx, tenantID, storeID, registerID
 	}
 	var shiftID string
 	err := tx.QueryRow(ctx, `SELECT id FROM register_sessions
-		WHERE tenant_id=$1 AND store_id=$2 AND register_id=$3 AND status='open' FOR SHARE`,
+		WHERE tenant_id=$1 AND store_id=$2 AND register_id=$3 AND status='open' `+lock,
 		tenantID, storeID, registerID).Scan(&shiftID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrNoOpenShift
@@ -212,11 +234,11 @@ func (r *postgresRepository) Close(ctx context.Context, tenantID string, actor A
 		if status != "open" {
 			return ErrClosed
 		}
-		count, cashSales, err := shiftTotals(ctx, tx, tenantID, shiftID)
+		totals, err := shiftTotals(ctx, tx, tenantID, shiftID)
 		if err != nil {
 			return err
 		}
-		expected, variance, err := closingFigures(opening, cashSales, in)
+		expected, variance, err := closingFigures(opening, totals.cashSales, totals.cashRefunds, in)
 		if err != nil {
 			return err
 		}
@@ -226,10 +248,10 @@ func (r *postgresRepository) Close(ctx context.Context, tenantID string, actor A
 		}
 		if _, err := tx.Exec(ctx, `UPDATE register_sessions SET status='closed', closed_by=$3, closer_name_snapshot=$4,
 			closed_at=now(), sales_count=$5, cash_sales_minor=$6, expected_cash_minor=$7, counted_cash_minor=$8,
-			variance_minor=$9, variance_reason=$10
+			variance_minor=$9, variance_reason=$10, refunds_count=$11, cash_refunds_minor=$12
 			WHERE tenant_id=$1 AND id=$2 AND status='open'`,
-			tenantID, shiftID, actor.UserID, actor.Name, count, cashSales, expected, in.CountedCashMinor,
-			variance, reason); err != nil {
+			tenantID, shiftID, actor.UserID, actor.Name, totals.sales, totals.cashSales, expected, in.CountedCashMinor,
+			variance, reason, totals.refunds, totals.cashRefunds); err != nil {
 			return err
 		}
 		shift, err = loadShift(ctx, tx, tenantID, shiftID, currency)
@@ -275,13 +297,22 @@ func (r *postgresRepository) List(ctx context.Context, tenantID string, actor Ac
 	return shifts, hasMore, err
 }
 
-// shiftTotals counts the completed cash sales taken into a shift.
-func shiftTotals(ctx context.Context, tx pgx.Tx, tenantID, shiftID string) (count, cashMinor int64, err error) {
-	err = tx.QueryRow(ctx, `SELECT count(*), COALESCE(sum(p.amount_minor), 0)
-		FROM orders o JOIN payments p ON p.tenant_id=o.tenant_id AND p.order_id=o.id AND p.method='cash'
-		WHERE o.tenant_id=$1 AND o.register_session_id=$2 AND o.status='completed'`,
-		tenantID, shiftID).Scan(&count, &cashMinor)
-	return count, cashMinor, err
+type totals struct{ sales, cashSales, refunds, cashRefunds int64 }
+
+// shiftTotals counts the completed cash sales taken into a shift and the cash
+// refunds paid out of it.
+func shiftTotals(ctx context.Context, tx pgx.Tx, tenantID, shiftID string) (totals, error) {
+	var t totals
+	err := tx.QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM orders o WHERE o.tenant_id=$1 AND o.register_session_id=$2 AND o.status='completed'),
+		(SELECT COALESCE(sum(p.amount_minor), 0)
+		   FROM orders o JOIN payments p ON p.tenant_id=o.tenant_id AND p.order_id=o.id AND p.method='cash'
+		  WHERE o.tenant_id=$1 AND o.register_session_id=$2 AND o.status='completed'),
+		(SELECT count(*) FROM returns r WHERE r.tenant_id=$1 AND r.register_session_id=$2),
+		(SELECT COALESCE(sum(r.refund_minor), 0) FROM returns r
+		  WHERE r.tenant_id=$1 AND r.register_session_id=$2 AND r.refund_method='cash')`,
+		tenantID, shiftID).Scan(&t.sales, &t.cashSales, &t.refunds, &t.cashRefunds)
+	return t, err
 }
 
 func loadShift(ctx context.Context, tx pgx.Tx, tenantID, shiftID, currency string) (*Shift, error) {
@@ -290,13 +321,15 @@ func loadShift(ctx context.Context, tx pgx.Tx, tenantID, shiftID, currency strin
 	err := tx.QueryRow(ctx, `SELECT rs.id, rs.store_id, st.name, rs.register_id, rs.register_name_snapshot, rs.status,
 		rs.opened_by, rs.opener_name_snapshot, rs.opened_at, rs.opening_cash_minor,
 		rs.closed_by, rs.closer_name_snapshot, rs.closed_at, rs.sales_count, rs.cash_sales_minor,
-		rs.expected_cash_minor, rs.counted_cash_minor, rs.variance_minor, rs.variance_reason
+		rs.expected_cash_minor, rs.counted_cash_minor, rs.variance_minor, rs.variance_reason,
+		rs.refunds_count, rs.cash_refunds_minor
 		FROM register_sessions rs JOIN stores st ON st.tenant_id=rs.tenant_id AND st.id=rs.store_id
 		WHERE rs.tenant_id=$1 AND rs.id=$2`, tenantID, shiftID).
 		Scan(&s.ID, &s.StoreID, &s.StoreName, &s.RegisterID, &s.RegisterName, &s.Status,
 			&s.OpenedBy, &s.OpenerName, &s.OpenedAt, &s.OpeningCashMinor,
 			&s.ClosedBy, &s.CloserName, &s.ClosedAt, &salesCount, &cashSales,
-			&expected, &s.CountedCashMinor, &s.VarianceMinor, &s.VarianceReason)
+			&expected, &s.CountedCashMinor, &s.VarianceMinor, &s.VarianceReason,
+			&s.RefundsCount, &s.CashRefundsMinor)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -307,7 +340,8 @@ func loadShift(ctx context.Context, tx pgx.Tx, tenantID, shiftID, currency strin
 		s.SalesCount, s.CashSalesMinor, s.ExpectedCashMinor = *salesCount, *cashSales, *expected
 		return s, nil
 	}
-	s.SalesCount, s.CashSalesMinor, err = shiftTotals(ctx, tx, tenantID, shiftID)
-	s.ExpectedCashMinor = s.OpeningCashMinor + s.CashSalesMinor
+	t, err := shiftTotals(ctx, tx, tenantID, shiftID)
+	s.SalesCount, s.CashSalesMinor, s.RefundsCount, s.CashRefundsMinor = t.sales, t.cashSales, t.refunds, t.cashRefunds
+	s.ExpectedCashMinor = s.OpeningCashMinor + s.CashSalesMinor - s.CashRefundsMinor
 	return s, err
 }

@@ -8,22 +8,23 @@ import (
 
 func TestClosingFigures(t *testing.T) {
 	cases := []struct {
-		name               string
-		opening, cashSales int64
-		in                 CloseInput
-		expected, variance int64
-		err                error
+		name                        string
+		opening, cashSales, refunds int64
+		in                          CloseInput
+		expected, variance          int64
+		err                         error
 	}{
-		{"balanced drawer needs no reason", 5000, 12000, CloseInput{CountedCashMinor: 17000, ExpectedCashMinor: 17000}, 17000, 0, nil},
-		{"short drawer with a reason", 5000, 12000, CloseInput{CountedCashMinor: 16500, ExpectedCashMinor: 17000, VarianceReason: "Gave extra change"}, 17000, -500, nil},
-		{"over drawer with a reason", 0, 1000, CloseInput{CountedCashMinor: 1200, ExpectedCashMinor: 1000, VarianceReason: "Tip left in drawer"}, 1000, 200, nil},
-		{"short drawer without a reason", 5000, 12000, CloseInput{CountedCashMinor: 16500, ExpectedCashMinor: 17000}, 0, 0, ErrReasonRequired},
-		{"reason too short", 5000, 0, CloseInput{CountedCashMinor: 4000, ExpectedCashMinor: 5000, VarianceReason: "ok"}, 0, 0, ErrReasonRequired},
-		{"a sale landed after the closer looked", 5000, 12000, CloseInput{CountedCashMinor: 15000, ExpectedCashMinor: 15000}, 0, 0, ErrExpectedChanged},
+		{"balanced drawer needs no reason", 5000, 12000, 0, CloseInput{CountedCashMinor: 17000, ExpectedCashMinor: 17000}, 17000, 0, nil},
+		{"short drawer with a reason", 5000, 12000, 0, CloseInput{CountedCashMinor: 16500, ExpectedCashMinor: 17000, VarianceReason: "Gave extra change"}, 17000, -500, nil},
+		{"refunds leave the drawer", 5000, 12000, 2000, CloseInput{CountedCashMinor: 15000, ExpectedCashMinor: 15000}, 15000, 0, nil},
+		{"over drawer with a reason", 0, 1000, 0, CloseInput{CountedCashMinor: 1200, ExpectedCashMinor: 1000, VarianceReason: "Tip left in drawer"}, 1000, 200, nil},
+		{"short drawer without a reason", 5000, 12000, 0, CloseInput{CountedCashMinor: 16500, ExpectedCashMinor: 17000}, 0, 0, ErrReasonRequired},
+		{"reason too short", 5000, 0, 0, CloseInput{CountedCashMinor: 4000, ExpectedCashMinor: 5000, VarianceReason: "ok"}, 0, 0, ErrReasonRequired},
+		{"a sale landed after the closer looked", 5000, 12000, 0, CloseInput{CountedCashMinor: 15000, ExpectedCashMinor: 15000}, 0, 0, ErrExpectedChanged},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			expected, variance, err := closingFigures(tc.opening, tc.cashSales, tc.in)
+			expected, variance, err := closingFigures(tc.opening, tc.cashSales, tc.refunds, tc.in)
 			if !errors.Is(err, tc.err) || expected != tc.expected || variance != tc.variance {
 				t.Fatalf("got expected=%d variance=%d err=%v; want %d, %d, %v",
 					expected, variance, err, tc.expected, tc.variance, tc.err)

@@ -45,7 +45,7 @@ export type Movement = {
   productName: string;
   variantName: string;
   sku: string;
-  kind: "receive" | "count" | "sale";
+  kind: "receive" | "count" | "sale" | "return";
   delta: number;
   quantityBefore: number;
   quantityAfter: number;

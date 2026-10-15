@@ -21,9 +21,12 @@ import (
 	"candella-ecosystem/backend/pkg/id"
 )
 
-// Only a named local disposable database or this repository's CI PostgreSQL
-// service may be migrated by this test.
-func TestCashCheckoutPostgres(t *testing.T) {
+// openSalesTestDB migrates the disposable database and returns a pool for
+// seeding (the login) and one for the code under test (the API role, so RLS
+// and grants apply exactly as they do in the server). Only a named local
+// disposable database or this repository's CI PostgreSQL service may be used.
+func openSalesTestDB(t *testing.T) (context.Context, *pgxpool.Pool, *pgxpool.Pool) {
+	t.Helper()
 	dsn := os.Getenv("SALES_TEST_DATABASE_URL")
 	ciDatabase := false
 	if dsn == "" && os.Getenv("GITHUB_ACTIONS") == "true" &&
@@ -43,8 +46,8 @@ func TestCashCheckoutPostgres(t *testing.T) {
 		(ciDatabase && (u.User == nil || u.User.Username() != "candella")) {
 		t.Fatal("sales integration test requires a local disposable PostgreSQL database")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	t.Cleanup(cancel)
 	sqlDB, err := sql.Open("pgx", dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -72,14 +75,19 @@ func TestCashCheckoutPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	// Seed as the login; run the code under test as the API role, so RLS and
 	// grants apply exactly as they do in the server.
 	appPool, err := database.Connect(ctx, dsn, database.AppRole)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer appPool.Close()
+	t.Cleanup(appPool.Close)
+	return ctx, pool, appPool
+}
+
+func TestCashCheckoutPostgres(t *testing.T) {
+	ctx, pool, appPool := openSalesTestDB(t)
 	userID, tenantA, tenantB := id.New(id.User), id.New(id.Tenant), id.New(id.Tenant)
 	storeA, storeB := id.New(id.Store), id.New(id.Store)
 	variantA, variantB, concurrentVariant := id.New(id.ProductVariant), id.New(id.ProductVariant), id.New(id.ProductVariant)
