@@ -27,11 +27,11 @@ const mainNav: { label: string; path: string; icon: LucideIcon }[] = [
   { label: "Inventory", path: "/inventory", icon: Boxes },
   { label: "Suppliers", path: "/suppliers", icon: Truck },
   { label: "Sales", path: "/sales", icon: Store },
+  { label: "Customers", path: "/customers", icon: Users },
 ];
 
 // Business modules ship later; shown now so the shell reads as a real app.
 const moduleNav: { label: string; icon: LucideIcon }[] = [
-  { label: "Customers", icon: Users },
   { label: "Reports", icon: BarChart3 },
 ];
 

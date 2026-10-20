@@ -103,6 +103,11 @@ export default function ReceiptPage() {
             <p className="mt-1 text-xs text-muted print:text-gray-600">
               Cashier: {sale.cashierName || sale.cashierId}
             </p>
+            {sale.customerName && (
+              <p className="mt-1 text-xs text-muted print:text-gray-600">
+                Customer: {sale.customerName}
+              </p>
+            )}
           </header>
           <div className="divide-y divide-line print:divide-gray-300">
             {sale.items.map((item) => (
