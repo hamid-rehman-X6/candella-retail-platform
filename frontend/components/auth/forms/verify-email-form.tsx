@@ -12,6 +12,7 @@ import {
   verifyEmail,
   resendVerification,
   pendingEmail,
+  pendingEmailDelivery,
   pendingInvitation,
 } from "@/lib/auth-api";
 import { setSessionUser } from "@/lib/session-store";
@@ -23,6 +24,8 @@ export function VerifyEmailForm() {
   const router = useRouter();
   // The email was stashed by the signup / login step (client-only, hydration-safe).
   const email = useSessionValue(pendingEmail.get);
+  const deliveryFailed =
+    useSessionValue(pendingEmailDelivery.getFailed) === "true";
   const [code, setCode] = useState("");
   const [error, setError] = useState<string>();
   const [verifying, setVerifying] = useState(false);
@@ -42,6 +45,7 @@ export function VerifyEmailForm() {
       const res = await verifyEmail({ email, code: value });
       setSessionUser(res.user);
       pendingEmail.clear();
+      pendingEmailDelivery.clear();
       // Verified + signed in — prompt to secure the account with 2FA.
       router.push(pendingInvitation.destination("/two-factor/setup"));
     } catch (err) {
@@ -56,14 +60,15 @@ export function VerifyEmailForm() {
   }
 
   async function resend() {
-    setSeconds(RESEND_SECONDS);
     setCode("");
     setError(undefined);
     try {
       await resendVerification(email);
+      pendingEmailDelivery.clear();
+      setSeconds(RESEND_SECONDS);
       setResent(true);
     } catch {
-      /* generic — no enumeration; nothing to show */
+      setError("Could not send a code. Please try again later.");
     }
   }
 
@@ -73,7 +78,12 @@ export function VerifyEmailForm() {
         icon={MailCheck}
         title="Verify your email"
         subtitle={
-          email ? (
+          deliveryFailed ? (
+            <>
+              Your account was created, but we couldn&apos;t send the code to{" "}
+              <span className="font-medium text-foreground/90">{email}</span>.
+            </>
+          ) : email ? (
             <>
               Enter the 6-digit code we sent to{" "}
               <span className="font-medium text-foreground/90">{email}</span>.
@@ -85,6 +95,15 @@ export function VerifyEmailForm() {
       />
 
       <div className="flex flex-col gap-4">
+        {deliveryFailed && (
+          <p
+            role="alert"
+            className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-foreground"
+          >
+            Email delivery is unavailable right now. Your account is saved. Try
+            sending a new code below when delivery is working.
+          </p>
+        )}
         <OtpInput
           value={code}
           onChange={setCode}
@@ -121,7 +140,7 @@ export function VerifyEmailForm() {
 
         <p className="text-center text-sm text-muted">
           Didn&apos;t get it?{" "}
-          {seconds > 0 ? (
+          {seconds > 0 && !deliveryFailed ? (
             <span className="text-subtle">Resend in {seconds}s</span>
           ) : (
             <button

@@ -46,12 +46,12 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		h.writeErr(w, err)
 		return
 	}
-	user, err := h.svc.Register(r.Context(), req)
+	user, emailSent, err := h.svc.Register(r.Context(), req)
 	if err != nil {
 		h.writeErr(w, err)
 		return
 	}
-	response.JSON(w, http.StatusCreated, map[string]string{"userId": user.ID, "email": user.Email})
+	response.JSON(w, http.StatusCreated, map[string]any{"userId": user.ID, "email": user.Email, "emailSent": emailSent})
 }
 
 // POST /auth/verify-email

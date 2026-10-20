@@ -44,6 +44,14 @@ func main() {
 
 	cfg := config.Load()
 	log := logger.New(cfg.Env)
+	if err := mailer.ValidateBaseURL(cfg.AppBaseURL, cfg.IsProduction()); err != nil {
+		log.Error("email link configuration invalid", "error", err)
+		os.Exit(1)
+	}
+	if cfg.EmailCodeTTL <= 0 || cfg.ResetTokenTTL <= 0 {
+		log.Error("email code and reset lifetimes must be positive")
+		os.Exit(1)
+	}
 
 	rootCtx := context.Background()
 
@@ -82,7 +90,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	mail := mailer.New(cfg.Mailer, cfg.ResendAPIKey, cfg.EmailFrom, log)
+	mail, err := mailer.New(cfg.Mailer, cfg.ResendAPIKey, cfg.EmailFrom, cfg.IsProduction(), log)
+	if err != nil {
+		log.Error("email delivery configuration invalid", "error", err)
+		os.Exit(1)
+	}
 
 	// The single writer to audit_logs, shared by every slice.
 	auditor := audit.NewRecorder(pool, log)

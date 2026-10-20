@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/mail"
+	"strings"
 	"time"
 )
 
@@ -51,17 +53,19 @@ func (m *ConsoleMailer) Send(_ context.Context, email Email) error {
 // ---------------------------------------------------------------------------
 
 type ResendMailer struct {
-	apiKey string
-	from   string
-	client *http.Client
+	apiKey   string
+	from     string
+	client   *http.Client
+	endpoint string
 }
 
 // NewResendMailer returns a Mailer backed by the Resend API.
 func NewResendMailer(apiKey, from string) *ResendMailer {
 	return &ResendMailer{
-		apiKey: apiKey,
-		from:   from,
-		client: &http.Client{Timeout: 10 * time.Second},
+		apiKey:   apiKey,
+		from:     from,
+		client:   &http.Client{Timeout: 10 * time.Second},
+		endpoint: "https://api.resend.com/emails",
 	}
 }
 
@@ -82,7 +86,7 @@ func (m *ResendMailer) Send(ctx context.Context, email Email) error {
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"https://api.resend.com/emails", bytes.NewReader(body))
+		m.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("mailer: request: %w", err)
 	}
@@ -95,16 +99,31 @@ func (m *ResendMailer) Send(ctx context.Context, email Email) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 300 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("mailer: resend returned status %d", resp.StatusCode)
 	}
 	return nil
 }
 
-// New selects the Mailer implementation from configuration ("console" | "resend").
-func New(kind, resendAPIKey, from string, log *slog.Logger) Mailer {
-	if kind == "resend" && resendAPIKey != "" {
-		return NewResendMailer(resendAPIKey, from)
+// New selects the provider and rejects missing production delivery settings.
+// A requested Resend sender never silently falls back to console logging.
+func New(kind, resendAPIKey, from string, production bool, log *slog.Logger) (Mailer, error) {
+	switch kind {
+	case "console":
+		if production {
+			return nil, fmt.Errorf("mailer: MAILER=console is not allowed in production")
+		}
+		return NewConsoleMailer(log), nil
+	case "resend":
+		if strings.TrimSpace(resendAPIKey) == "" {
+			return nil, fmt.Errorf("mailer: RESEND_API_KEY is required when MAILER=resend")
+		}
+		address, err := mail.ParseAddress(from)
+		if err != nil || address.Address == "" {
+			return nil, fmt.Errorf("mailer: EMAIL_FROM must be a valid sender address")
+		}
+		return NewResendMailer(resendAPIKey, from), nil
+	default:
+		return nil, fmt.Errorf("mailer: unsupported MAILER value %q", kind)
 	}
-	return NewConsoleMailer(log)
 }
