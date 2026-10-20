@@ -39,7 +39,7 @@ func staffToken(t *testing.T, message mailer.Email) string {
 		t.Fatal("invitation email has no HTML action")
 	}
 	for _, part := range strings.Fields(message.Text) {
-		if !strings.HasPrefix(part, "https://") {
+		if !strings.HasPrefix(part, "https://") && !strings.HasPrefix(part, "http://") {
 			continue
 		}
 		link, err := url.Parse(part)
@@ -49,6 +49,16 @@ func staffToken(t *testing.T, message mailer.Email) string {
 	}
 	t.Fatal("invitation token missing from plain-text email")
 	return ""
+}
+
+func TestStaffTokenFromPlainText(t *testing.T) {
+	message, err := mailer.StaffInvitationEmail("staff@example.com", "member", "http://localhost:3000/invitations/accept?token=demo", 7*24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := staffToken(t, message); got != "demo" {
+		t.Fatalf("invitation token = %q, want demo", got)
+	}
 }
 
 // Migrations run only on a named local disposable DB or this repo's CI service.

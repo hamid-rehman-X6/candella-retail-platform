@@ -49,7 +49,7 @@ func TestActionEmailsEscapeContentAndKeepSafeLinks(t *testing.T) {
 	}
 
 	invite, err := StaffInvitationEmail(
-		"staff@example.com", "<owner>", "https://candella.example/invitations/accept?token=demo", 7*24*time.Hour-time.Second,
+		"staff@example.com", "<owner>", "http://localhost:3000/invitations/accept?token=demo", 7*24*time.Hour-time.Second,
 	)
 	if err != nil {
 		t.Fatal(err)
