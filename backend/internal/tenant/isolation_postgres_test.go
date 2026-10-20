@@ -28,7 +28,8 @@ var tenantTables = []string{
 	"stores", "store_access", "products", "product_variants", "stock_levels",
 	"stock_movements", "document_sequences", "orders", "order_items", "payments",
 	"suppliers", "supplier_variants", "catalog_import_batches", "registers", "register_sessions",
-	"returns", "return_items", "customers",
+	"returns", "return_items", "customers", "purchase_orders", "purchase_order_items",
+	"goods_receipts", "goods_receipt_items",
 }
 
 // controlPlaneTables carry a tenant_id but are read before a tenant is in scope:
@@ -118,6 +119,7 @@ func setupIsolation(t *testing.T) *isolationEnv {
 
 type seededTenant struct {
 	tenantID, userID, storeID, productID, variantID, orderID, supplierID, customerID, registerID, shiftID, returnID string
+	purchaseID, receiptID                                                                                           string
 }
 
 // seedTenant writes one row of every tenant table for a new tenant, as the
@@ -128,6 +130,7 @@ func seedTenant(t *testing.T, env *isolationEnv) seededTenant {
 		tenantID: id.New(id.Tenant), userID: id.New(id.User), storeID: id.New(id.Store),
 		productID: id.New(id.Product), variantID: id.New(id.ProductVariant),
 		orderID: id.New(id.Order), supplierID: id.New(id.Supplier), customerID: id.New(id.Customer),
+		purchaseID: id.New(id.PurchaseOrder), receiptID: id.New(id.GoodsReceipt),
 		registerID: id.New(id.Register), shiftID: id.New(id.RegisterSession), returnID: id.New(id.Return),
 	}
 	statements := []struct {
@@ -177,6 +180,20 @@ func seedTenant(t *testing.T, env *isolationEnv) seededTenant {
 		  VALUES ($1, $2, $3, $4, $5, 1, 15000, 15000)`,
 			[]any{id.New(id.ReturnItem), s.tenantID, s.returnID, s.orderID, s.variantID}},
 		{`INSERT INTO suppliers (id, tenant_id, name) VALUES ($1, $2, 'Supplier')`, []any{s.supplierID, s.tenantID}},
+		{`INSERT INTO purchase_orders (id,tenant_id,store_id,supplier_id,number,idempotency_key,request_hash,
+		  store_name_snapshot,supplier_name_snapshot,currency_code,total_cost_minor,created_by)
+		  VALUES ($1,$2,$3,$4,'PO-000001',$1,repeat('p',64),'Main','Supplier','PKR',15000,$5)`,
+			[]any{s.purchaseID, s.tenantID, s.storeID, s.supplierID, s.userID}},
+		{`INSERT INTO purchase_order_items (id,tenant_id,purchase_order_id,variant_id,product_name_snapshot,
+		  variant_name_snapshot,sku_snapshot,quantity,unit_cost_minor,line_cost_minor)
+		  VALUES ($1,$2,$3,$4,'Original','Default','SKU',1,15000,15000)`,
+			[]any{id.New(id.PurchaseItem), s.tenantID, s.purchaseID, s.variantID}},
+		{`INSERT INTO goods_receipts (id,tenant_id,purchase_order_id,store_id,idempotency_key,request_hash,total_cost_minor,created_by)
+		  VALUES ($1,$2,$3,$4,$1,repeat('g',64),15000,$5)`,
+			[]any{s.receiptID, s.tenantID, s.purchaseID, s.storeID, s.userID}},
+		{`INSERT INTO goods_receipt_items (id,tenant_id,goods_receipt_id,purchase_order_id,variant_id,quantity,unit_cost_minor,line_cost_minor)
+		  VALUES ($1,$2,$3,$4,$5,1,15000,15000)`,
+			[]any{id.New(id.GoodsReceiptItem), s.tenantID, s.receiptID, s.purchaseID, s.variantID}},
 		{`INSERT INTO customers (id, tenant_id, name, phone) VALUES ($1, $2, 'Customer', '03001234567')`, []any{s.customerID, s.tenantID}},
 		{`INSERT INTO supplier_variants (tenant_id, supplier_id, variant_id) VALUES ($1, $2, $3)`,
 			[]any{s.tenantID, s.supplierID, s.variantID}},
@@ -324,6 +341,7 @@ func TestTenantIsolation(t *testing.T) {
 			`UPDATE stores SET name = 'Hijacked' WHERE tenant_id = $1`,
 			`UPDATE suppliers SET name = 'Hijacked' WHERE tenant_id = $1`,
 			`UPDATE customers SET name = 'Hijacked' WHERE tenant_id = $1`,
+			`UPDATE purchase_orders SET status = 'received' WHERE tenant_id = $1`,
 			`UPDATE document_sequences SET current_number = 999 WHERE tenant_id = $1`,
 			`DELETE FROM store_access WHERE tenant_id = $1`,
 			`UPDATE register_sessions SET status = 'closed' WHERE tenant_id = $1`,
@@ -409,6 +427,10 @@ func TestTenantIsolation(t *testing.T) {
 			`DELETE FROM order_items WHERE tenant_id = $1`,
 			`UPDATE returns SET refund_minor = 1 WHERE tenant_id = $1`,
 			`DELETE FROM return_items WHERE tenant_id = $1`,
+			`UPDATE purchase_orders SET total_cost_minor = 0 WHERE tenant_id = $1`,
+			`UPDATE purchase_order_items SET unit_cost_minor = 0 WHERE tenant_id = $1`,
+			`UPDATE goods_receipts SET total_cost_minor = 0 WHERE tenant_id = $1`,
+			`DELETE FROM goods_receipt_items WHERE tenant_id = $1`,
 			`DELETE FROM audit_logs WHERE tenant_id = $1`,
 			`UPDATE audit_logs SET action = 'x' WHERE tenant_id = $1`,
 			`SELECT count(*) FROM audit_logs WHERE tenant_id = $1`,
@@ -461,6 +483,8 @@ func TestTenantIsolation(t *testing.T) {
 			`SELECT count(*) FROM staff_invitations`,
 			`SELECT phone FROM customers LIMIT 1`,
 			`SELECT email FROM customers LIMIT 1`,
+			`SELECT total_cost_minor FROM purchase_orders LIMIT 1`,
+			`SELECT unit_cost_minor FROM purchase_order_items LIMIT 1`,
 			`UPDATE platform_admins SET role = 'owner'`,
 		} {
 			_, err := env.platform.Exec(env.ctx, query)

@@ -327,8 +327,8 @@ export default function InventoryPage() {
       <section>
         <h2 className="text-lg font-semibold">Recent movements</h2>
         <p className="mt-1 text-sm text-muted">
-          Stock receipts, count corrections and sales appear here after they are
-          saved.
+          Vendor deliveries, stock receipts, count corrections and sales appear
+          here after they are saved.
         </p>
         <div className="mt-4 space-y-2">
           {movements.length === 0 ? (
@@ -348,11 +348,13 @@ export default function InventoryPage() {
                   <p className="mt-1 text-muted">
                     {m.kind === "receive"
                       ? "Received"
-                      : m.kind === "sale"
-                        ? "Sold"
-                        : m.kind === "return"
-                          ? "Returned by customer"
-                          : "Count corrected"}{" "}
+                      : m.kind === "purchase"
+                        ? "Vendor delivery"
+                        : m.kind === "sale"
+                          ? "Sold"
+                          : m.kind === "return"
+                            ? "Returned by customer"
+                            : "Count corrected"}{" "}
                     · {m.sku} · {formatDateTime(m.createdAt, current.timezone)}
                   </p>
                   {m.note && <p className="mt-1 text-muted">{m.note}</p>}
@@ -362,6 +364,17 @@ export default function InventoryPage() {
                       className="mt-1 inline-block text-xs text-accent-ink hover:underline"
                     >
                       Open sale receipt
+                    </Link>
+                  )}
+                  {m.purchaseOrderId && (
+                    <Link
+                      href={workspacePath(
+                        current.slug,
+                        `/purchases/${m.purchaseOrderId}`,
+                      )}
+                      className="mt-1 inline-block text-xs text-accent-ink hover:underline"
+                    >
+                      Open purchase order
                     </Link>
                   )}
                 </div>

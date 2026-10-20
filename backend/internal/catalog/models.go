@@ -41,19 +41,20 @@ type Summary struct {
 }
 
 type Movement struct {
-	ID             string    `json:"id"`
-	StoreID        string    `json:"storeId"`
-	OrderID        *string   `json:"orderId"`
-	VariantID      string    `json:"variantId"`
-	ProductName    string    `json:"productName"`
-	VariantName    string    `json:"variantName"`
-	SKU            string    `json:"sku"`
-	Kind           string    `json:"kind"`
-	Delta          int64     `json:"delta"`
-	QuantityBefore int64     `json:"quantityBefore"`
-	QuantityAfter  int64     `json:"quantityAfter"`
-	Note           string    `json:"note"`
-	CreatedAt      time.Time `json:"createdAt"`
+	ID              string    `json:"id"`
+	StoreID         string    `json:"storeId"`
+	OrderID         *string   `json:"orderId"`
+	PurchaseOrderID *string   `json:"purchaseOrderId"`
+	VariantID       string    `json:"variantId"`
+	ProductName     string    `json:"productName"`
+	VariantName     string    `json:"variantName"`
+	SKU             string    `json:"sku"`
+	Kind            string    `json:"kind"`
+	Delta           int64     `json:"delta"`
+	QuantityBefore  int64     `json:"quantityBefore"`
+	QuantityAfter   int64     `json:"quantityAfter"`
+	Note            string    `json:"note"`
+	CreatedAt       time.Time `json:"createdAt"`
 }
 
 type CreateProductInput struct {

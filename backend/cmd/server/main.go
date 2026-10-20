@@ -27,6 +27,7 @@ import (
 	"candella-ecosystem/backend/internal/health"
 	appmiddleware "candella-ecosystem/backend/internal/middleware"
 	"candella-ecosystem/backend/internal/platform"
+	"candella-ecosystem/backend/internal/purchase"
 	"candella-ecosystem/backend/internal/register"
 	"candella-ecosystem/backend/internal/sales"
 	"candella-ecosystem/backend/internal/store"
@@ -114,6 +115,7 @@ func main() {
 	storeHandler := store.NewHandler(pool, auditor, log)
 	salesHandler := sales.NewHandler(sales.NewService(sales.NewPostgresRepository(pool)), auditor, log)
 	customerHandler := customer.NewHandler(customer.NewService(customer.NewPostgresRepository(pool)), auditor, log)
+	purchaseHandler := purchase.NewHandler(purchase.NewService(purchase.NewPostgresRepository(pool)), auditor, log)
 	registerHandler := register.NewHandler(register.NewService(register.NewPostgresRepository(pool)), auditor, log)
 
 	// The platform console reads across every tenant through its own pool (see
@@ -160,6 +162,7 @@ func main() {
 		store.Routes(api, storeHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		sales.Routes(api, salesHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		customer.Routes(api, customerHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
+		purchase.Routes(api, purchaseHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		register.Routes(api, registerHandler, authHandler.RequireAuth, wsHandler.RequireTenant)
 		platform.Routes(api, platformHandler, authHandler.RequireAuth)
 	})

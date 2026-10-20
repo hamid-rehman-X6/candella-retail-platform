@@ -26,6 +26,7 @@ const mainNav: { label: string; path: string; icon: LucideIcon }[] = [
   { label: "Products", path: "/products", icon: Package },
   { label: "Inventory", path: "/inventory", icon: Boxes },
   { label: "Suppliers", path: "/suppliers", icon: Truck },
+  { label: "Purchases", path: "/purchases", icon: Package },
   { label: "Sales", path: "/sales", icon: Store },
   { label: "Customers", path: "/customers", icon: Users },
 ];
@@ -168,30 +169,32 @@ export function Sidebar({
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {mainNav.map((item) => {
-            const href = workspacePath(current.slug, item.path);
-            const active = pathname === href;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.label}
-                href={href}
-                onClick={onClose}
-                aria-label={collapsed ? item.label : undefined}
-                title={collapsed ? item.label : undefined}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 motion-reduce:transition-none",
-                  collapsed && "lg:justify-center lg:gap-0",
-                  active
-                    ? "bg-accent/10 text-accent-ink ring-1 ring-accent/20"
-                    : "text-muted hover:bg-foreground/5 hover:text-foreground",
-                )}
-              >
-                <Icon className="h-4.5 w-4.5 shrink-0" />
-                <NavLabel collapsed={collapsed}>{item.label}</NavLabel>
-              </Link>
-            );
-          })}
+          {mainNav
+            .filter((item) => item.label !== "Purchases" || canManageStaff)
+            .map((item) => {
+              const href = workspacePath(current.slug, item.path);
+              const active = pathname === href;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.label}
+                  href={href}
+                  onClick={onClose}
+                  aria-label={collapsed ? item.label : undefined}
+                  title={collapsed ? item.label : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 motion-reduce:transition-none",
+                    collapsed && "lg:justify-center lg:gap-0",
+                    active
+                      ? "bg-accent/10 text-accent-ink ring-1 ring-accent/20"
+                      : "text-muted hover:bg-foreground/5 hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-4.5 w-4.5 shrink-0" />
+                  <NavLabel collapsed={collapsed}>{item.label}</NavLabel>
+                </Link>
+              );
+            })}
 
           <p
             className={cn(
