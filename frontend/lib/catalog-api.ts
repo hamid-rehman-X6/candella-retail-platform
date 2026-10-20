@@ -41,11 +41,12 @@ export type Movement = {
   id: string;
   storeId: string;
   orderId: string | null;
+  purchaseOrderId: string | null;
   variantId: string;
   productName: string;
   variantName: string;
   sku: string;
-  kind: "receive" | "count" | "sale" | "return";
+  kind: "receive" | "count" | "sale" | "return" | "purchase";
   delta: number;
   quantityBefore: number;
   quantityAfter: number;

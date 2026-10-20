@@ -381,8 +381,9 @@ func (r *postgresRepository) ListMovements(ctx context.Context, tenantID string,
 		if err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT m.id, m.store_id, m.order_id, m.variant_id, p.name, v.name, v.sku, m.kind, m.delta,
+		rows, err := tx.Query(ctx, `SELECT m.id, m.store_id, m.order_id, gr.purchase_order_id, m.variant_id, p.name, v.name, v.sku, m.kind, m.delta,
 			m.quantity_before, m.quantity_after, m.note, m.created_at FROM stock_movements m
+			LEFT JOIN goods_receipts gr ON gr.tenant_id=m.tenant_id AND gr.id=m.goods_receipt_id
 			JOIN product_variants v ON v.tenant_id=m.tenant_id AND v.id=m.variant_id
 			JOIN products p ON p.tenant_id=v.tenant_id AND p.id=v.product_id
 			WHERE m.tenant_id=$1 AND m.store_id=$2 ORDER BY m.created_at DESC, m.id DESC LIMIT $3 OFFSET $4`, tenantID, location.ID, limit, offset)
@@ -392,7 +393,7 @@ func (r *postgresRepository) ListMovements(ctx context.Context, tenantID string,
 		defer rows.Close()
 		for rows.Next() {
 			var m Movement
-			if err := rows.Scan(&m.ID, &m.StoreID, &m.OrderID, &m.VariantID, &m.ProductName, &m.VariantName, &m.SKU, &m.Kind,
+			if err := rows.Scan(&m.ID, &m.StoreID, &m.OrderID, &m.PurchaseOrderID, &m.VariantID, &m.ProductName, &m.VariantName, &m.SKU, &m.Kind,
 				&m.Delta, &m.QuantityBefore, &m.QuantityAfter, &m.Note, &m.CreatedAt); err != nil {
 				return err
 			}
