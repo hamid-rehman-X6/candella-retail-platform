@@ -7,12 +7,18 @@ import { useApp, workspacePath } from "@/components/app/app-context";
 import { industryLabel } from "@/lib/industries";
 import { getCatalogSummary, type CatalogSummary } from "@/lib/catalog-api";
 import { useStoreSelection } from "@/lib/use-store-selection";
+import { businessToday } from "@/lib/datetime";
+import { formatMoney } from "@/lib/money";
+import { getDailyReport, type DailyReport } from "@/lib/reports-api";
 
 export default function DashboardPage() {
   const { user, current } = useApp();
   const { storeId, selectedStore } = useStoreSelection(current.id);
   const firstName = user.fullName.split(" ")[0] || user.fullName;
   const [summary, setSummary] = useState<CatalogSummary | null>(null);
+  const [dailyReport, setDailyReport] = useState<DailyReport | null>(null);
+  const canViewReports = current.role === "owner" || current.role === "admin";
+  const today = businessToday(current.timezone);
 
   useEffect(() => {
     if (!storeId) return;
@@ -29,18 +35,40 @@ export default function DashboardPage() {
     };
   }, [current.id, storeId]);
 
+  useEffect(() => {
+    if (!storeId || !canViewReports) return;
+    let active = true;
+    getDailyReport(current.id, storeId, today, today)
+      .then(({ report }) => {
+        if (active) setDailyReport(report);
+      })
+      .catch(() => {
+        if (active) setDailyReport(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [current.id, storeId, today, canViewReports]);
+
+  const todayTotals =
+    dailyReport?.storeId === storeId && dailyReport.fromDate === today
+      ? dailyReport.totals
+      : null;
+
   const kpis = [
     {
-      label: "Revenue",
-      value: "—",
+      label: "Net sales",
+      value: todayTotals
+        ? formatMoney(todayTotals.netSalesMinor, current.currencyCode)
+        : "—",
       icon: Receipt,
-      note: "Sales module coming soon",
+      note: canViewReports ? "Today · after cash refunds" : "Manager access",
     },
     {
-      label: "Orders",
-      value: "—",
+      label: "Sales",
+      value: todayTotals?.salesCount ?? "—",
       icon: Store,
-      note: "Sales module coming soon",
+      note: canViewReports ? "Completed today" : "Manager access",
     },
     {
       label: "Products",
@@ -100,8 +128,8 @@ export default function DashboardPage() {
               Set up your store
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Add your products and starting stock. Checkout and customer
-              management are coming later.
+              Add products and starting stock, then use Sales for checkout.
+              Managers can review each day in Reports.
             </p>
             <ul className="mt-5 flex flex-col gap-3 text-sm">
               <li className="flex items-center gap-3">
@@ -132,6 +160,17 @@ export default function DashboardPage() {
                   Receive starting stock →
                 </Link>
               </li>
+              {canViewReports && (
+                <li className="flex items-center gap-3">
+                  <span className="h-5 w-5 rounded-full border border-line" />
+                  <Link
+                    className="hover:text-accent-ink"
+                    href={workspacePath(current.slug, "/reports")}
+                  >
+                    Review daily reports →
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
         </div>

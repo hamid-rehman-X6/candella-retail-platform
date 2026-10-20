@@ -10,6 +10,19 @@ export const DEFAULT_TIMEZONE = "Asia/Karachi";
 
 const LOCALE = "en-PK";
 
+/** Current calendar day at a workspace, independent of the device timezone. */
+export function businessToday(timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: string) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 /** "15-Oct-2026, 2:05 am" */
 export function formatDateTime(
   iso: string,
