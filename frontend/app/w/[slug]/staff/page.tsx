@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app/app-context";
 import { formatDate } from "@/lib/datetime";
+import { ApiError } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import {
   changeStaffRole,
   inviteStaff,
@@ -18,6 +20,8 @@ import {
 } from "@/lib/staff-api";
 
 const roles = ["member", "admin", "owner"] as const;
+const roleLabel = (role: StaffMember["role"]) =>
+  role.charAt(0).toUpperCase() + role.slice(1);
 
 export default function StaffPage() {
   const { current, user } = useApp();
@@ -27,14 +31,14 @@ export default function StaffPage() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<StaffMember["role"]>("member");
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
     const result = await listStaff(current.id);
     setMembers(result.members);
     setInvitations(result.invitations);
+    setLoadFailed(false);
   }, [current.id]);
 
   useEffect(() => {
@@ -44,13 +48,17 @@ export default function StaffPage() {
         if (!cancelled) {
           setMembers(result.members);
           setInvitations(result.invitations);
+          setLoadFailed(false);
         }
       })
       .catch((cause) => {
-        if (!cancelled)
-          setError(
-            cause instanceof Error ? cause.message : "Could not load staff.",
-          );
+        if (!cancelled) {
+          setLoadFailed(true);
+          toast.error("Could not load staff", {
+            description:
+              cause instanceof Error ? cause.message : "Try again shortly.",
+          });
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -62,22 +70,37 @@ export default function StaffPage() {
 
   async function action(work: () => Promise<unknown>, success: string) {
     setBusy(true);
-    setError("");
-    setNotice("");
     try {
       await work();
-      await load();
-      setNotice(success);
+      toast.success(success);
       router.refresh();
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "The change could not be saved.",
-      );
-      // An invitation can be saved even when email delivery fails.
-      void load().catch(() => undefined);
+      if (
+        cause instanceof ApiError &&
+        cause.code === "invitation_delivery_failed"
+      ) {
+        toast.error("Invitation saved, but email was not delivered", {
+          description:
+            "Check your email sender settings, then use Resend on the pending invitation.",
+          duration: 10000,
+        });
+      } else {
+        toast.error("Could not complete the staff action", {
+          description:
+            cause instanceof Error
+              ? cause.message
+              : "Please try again shortly.",
+        });
+      }
     } finally {
+      try {
+        await load();
+      } catch {
+        setLoadFailed(true);
+        toast.error("Could not refresh staff list", {
+          description: "Try reloading this page to see the latest changes.",
+        });
+      }
       setBusy(false);
     }
   }
@@ -108,23 +131,6 @@ export default function StaffPage() {
         </p>
       </div>
 
-      {error && (
-        <p
-          role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-danger-ink"
-        >
-          {error}
-        </p>
-      )}
-      {notice && (
-        <p
-          role="status"
-          className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-success-ink"
-        >
-          {notice}
-        </p>
-      )}
-
       <form
         onSubmit={submit}
         className="grid gap-3 rounded-2xl border border-line bg-surface p-5 sm:grid-cols-[minmax(0,1fr)_160px_auto] sm:items-end"
@@ -149,7 +155,7 @@ export default function StaffPage() {
             className="mt-2 w-full rounded-xl border border-line bg-canvas px-3 py-2.5 outline-none focus:border-accent"
             options={roles
               .filter((item) => current.role === "owner" || item !== "owner")
-              .map((item) => ({ value: item, label: item }))}
+              .map((item) => ({ value: item, label: roleLabel(item) }))}
           />
         </label>
         <button
@@ -164,6 +170,18 @@ export default function StaffPage() {
         <h2 className="text-lg font-semibold">Members</h2>
         {loading ? (
           <p className="mt-4 text-sm text-muted">Loading staff...</p>
+        ) : loadFailed ? (
+          <button
+            type="button"
+            onClick={() =>
+              void load().catch(() =>
+                toast.error("Could not load staff. Please try again."),
+              )
+            }
+            className="mt-4 text-sm font-medium text-accent-ink hover:text-accent-hover"
+          >
+            Could not load staff. Retry
+          </button>
         ) : members.length === 0 ? (
           <p className="mt-4 text-sm text-muted">No staff found.</p>
         ) : (
@@ -208,7 +226,7 @@ export default function StaffPage() {
                       .filter(
                         (item) => current.role === "owner" || item !== "owner",
                       )
-                      .map((item) => ({ value: item, label: item }))}
+                      .map((item) => ({ value: item, label: roleLabel(item) }))}
                   />
                   <button
                     type="button"
@@ -237,7 +255,9 @@ export default function StaffPage() {
 
       <section className="rounded-2xl border border-line bg-surface p-5">
         <h2 className="text-lg font-semibold">Pending invitations</h2>
-        {invitations.length === 0 ? (
+        {loadFailed ? (
+          <p className="mt-4 text-sm text-muted">Staff list is unavailable.</p>
+        ) : invitations.length === 0 ? (
           <p className="mt-4 text-sm text-muted">No pending invitations.</p>
         ) : (
           <div className="mt-4 divide-y divide-line">
