@@ -58,6 +58,20 @@ function PurchasesWorkspace() {
   const requestKey = useRef<string | null>(null);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      const sku = params.get("sku");
+      const id = params.get("supplierId");
+      if (sku) setProductSearch(sku);
+      if (id) {
+        setSupplierId(id);
+        setSupplierSearch(params.get("supplierName") ?? "");
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(() => {
       void listSuppliers(current.id, supplierSearch)

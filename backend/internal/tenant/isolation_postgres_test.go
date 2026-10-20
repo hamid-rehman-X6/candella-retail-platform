@@ -30,6 +30,7 @@ var tenantTables = []string{
 	"suppliers", "supplier_variants", "catalog_import_batches", "registers", "register_sessions",
 	"returns", "return_items", "customers", "purchase_orders", "purchase_order_items",
 	"goods_receipts", "goods_receipt_items",
+	"reorder_settings",
 }
 
 // controlPlaneTables carry a tenant_id but are read before a tenant is in scope:
@@ -197,6 +198,8 @@ func seedTenant(t *testing.T, env *isolationEnv) seededTenant {
 		{`INSERT INTO customers (id, tenant_id, name, phone) VALUES ($1, $2, 'Customer', '03001234567')`, []any{s.customerID, s.tenantID}},
 		{`INSERT INTO supplier_variants (tenant_id, supplier_id, variant_id) VALUES ($1, $2, $3)`,
 			[]any{s.tenantID, s.supplierID, s.variantID}},
+		{`INSERT INTO reorder_settings (tenant_id,store_id,variant_id,threshold,preferred_supplier_id)
+		  VALUES ($1,$2,$3,10,$4)`, []any{s.tenantID, s.storeID, s.variantID, s.supplierID}},
 		{`INSERT INTO catalog_import_batches (id, tenant_id, idempotency_key, request_hash, mode, created_by)
 		  VALUES ($1, $2, $1, repeat('b', 64), 'create', $3)`,
 			[]any{id.New(id.Prefix("cimp")), s.tenantID, s.userID}},
@@ -338,6 +341,7 @@ func TestTenantIsolation(t *testing.T) {
 			`UPDATE products SET name = 'Hijacked' WHERE tenant_id = $1`,
 			`UPDATE product_variants SET price_minor = 1 WHERE tenant_id = $1`,
 			`UPDATE stock_levels SET quantity = 999 WHERE tenant_id = $1`,
+			`UPDATE reorder_settings SET threshold = 999 WHERE tenant_id = $1`,
 			`UPDATE stores SET name = 'Hijacked' WHERE tenant_id = $1`,
 			`UPDATE suppliers SET name = 'Hijacked' WHERE tenant_id = $1`,
 			`UPDATE customers SET name = 'Hijacked' WHERE tenant_id = $1`,
@@ -392,6 +396,8 @@ func TestTenantIsolation(t *testing.T) {
 			INSERT INTO stock_levels (id, tenant_id, store_id, variant_id, quantity) VALUES ($1, $2, $3, $4, 1)`,
 			id.New(id.StockLevel), a.tenantID, a.storeID, b.variantID)
 		expectCode(t, err, foreignKey, "stock for tenant B's variant")
+		_, err = inTenant(env, a.tenantID, `UPDATE reorder_settings SET preferred_supplier_id=$2 WHERE tenant_id=$1`, a.tenantID, b.supplierID)
+		expectCode(t, err, foreignKey, "reorder setting for tenant B's supplier")
 		_, err = inTenant(env, a.tenantID, `INSERT INTO orders (id, tenant_id, store_id, order_number, idempotency_key,
 			request_hash, currency_code, subtotal_minor, grand_total_minor, created_by, store_name_snapshot, customer_id)
 			VALUES ($1, $2, $3, 'POS-999998', $1, repeat('c',64), 'PKR', 0, 0, $4, 'Main', $5)`,

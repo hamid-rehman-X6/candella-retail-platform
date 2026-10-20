@@ -17,11 +17,13 @@ type Error struct {
 func (e *Error) Error() string { return e.Message }
 
 var (
-	ErrInvalid          = &Error{http.StatusBadRequest, "invalid_input", "Check the entered details and try again."}
-	ErrNotFound         = &Error{http.StatusNotFound, "not_found", "That item was not found in this workspace."}
-	ErrConflict         = &Error{http.StatusConflict, "duplicate_identifier", "That SKU or barcode is already used in this workspace."}
-	ErrArchived         = &Error{http.StatusConflict, "product_archived", "Archived products cannot receive new variants or stock."}
-	ErrMovementKeyReuse = &Error{http.StatusConflict, "inventory_key_reused", "This stock change was already submitted with different details. Start a new stock change."}
+	ErrInvalid           = &Error{http.StatusBadRequest, "invalid_input", "Check the entered details and try again."}
+	ErrNotFound          = &Error{http.StatusNotFound, "not_found", "That item was not found in this workspace."}
+	ErrConflict          = &Error{http.StatusConflict, "duplicate_identifier", "That SKU or barcode is already used in this workspace."}
+	ErrArchived          = &Error{http.StatusConflict, "product_archived", "Archived products cannot receive new variants or stock."}
+	ErrMovementKeyReuse  = &Error{http.StatusConflict, "inventory_key_reused", "This stock change was already submitted with different details. Start a new stock change."}
+	ErrInvalidReorder    = &Error{http.StatusBadRequest, "invalid_reorder_setting", "Enter a whole-number alert threshold from 0 to 1,000,000,000 and choose a valid supplier."}
+	ErrSupplierNotActive = &Error{http.StatusConflict, "reorder_supplier_unavailable", "Choose an active supplier in this workspace."}
 )
 
 type Repository interface {
@@ -31,6 +33,8 @@ type Repository interface {
 	AddVariant(context.Context, string, string, CreateVariantInput) (*Variant, error)
 	UpdateVariant(context.Context, string, string, UpdateVariantInput) (*Variant, error)
 	ListStock(context.Context, string, string, int, int) ([]StockItem, string, error)
+	ListLowStock(context.Context, string, int, int) ([]ReorderItem, error)
+	SaveReorder(context.Context, string, string, ReorderInput) error
 	Summary(context.Context, string) (*Summary, error)
 	RecordMovement(context.Context, string, string, MovementInput) (*Movement, bool, error)
 	ListMovements(context.Context, string, int, int) ([]Movement, error)
@@ -148,6 +152,31 @@ func (s *Service) UpdateVariant(ctx context.Context, tenantID, variantID string,
 }
 func (s *Service) ListStock(ctx context.Context, tenantID, search string, limit, offset int) ([]StockItem, string, error) {
 	return s.repo.ListStock(ctx, tenantID, strings.TrimSpace(search), pageLimit(limit), pageOffset(offset))
+}
+func (s *Service) ListLowStock(ctx context.Context, tenantID string, limit, offset int) ([]ReorderItem, error) {
+	return s.repo.ListLowStock(ctx, tenantID, pageLimit(limit), pageOffset(offset))
+}
+func (s *Service) SaveReorder(ctx context.Context, tenantID, variantID string, in ReorderInput) error {
+	in.StoreID = strings.TrimSpace(in.StoreID)
+	if !strings.HasPrefix(variantID, "var_") || len(variantID) != 16 || !strings.HasPrefix(in.StoreID, "str_") || len(in.StoreID) != 16 ||
+		(in.Threshold != nil && (*in.Threshold < 0 || *in.Threshold > 1_000_000_000)) {
+		return ErrInvalidReorder
+	}
+	if in.PreferredSupplierID != nil {
+		v := strings.TrimSpace(*in.PreferredSupplierID)
+		if v != "" && (!strings.HasPrefix(v, "sup_") || len(v) != 16) {
+			return ErrInvalidReorder
+		}
+		if v == "" {
+			in.PreferredSupplierID = nil
+		} else {
+			in.PreferredSupplierID = &v
+		}
+	}
+	if in.Threshold == nil && in.PreferredSupplierID != nil {
+		return ErrInvalidReorder
+	}
+	return s.repo.SaveReorder(ctx, tenantID, variantID, in)
 }
 func (s *Service) Summary(ctx context.Context, tenantID string) (*Summary, error) {
 	return s.repo.Summary(ctx, tenantID)

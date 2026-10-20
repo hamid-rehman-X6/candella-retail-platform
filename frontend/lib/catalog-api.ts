@@ -28,7 +28,13 @@ export type StockItem = {
   barcode: string | null;
   priceMinor: number;
   quantity: number;
+  reorderThreshold: number | null;
+  preferredSupplierId: string | null;
+  preferredSupplierName: string | null;
+  configuredSupplierId: string | null;
 };
+
+export type ReorderItem = StockItem & { suggestedQuantity: number };
 
 export type CatalogSummary = {
   productCount: number;
@@ -137,6 +143,30 @@ export const listStock = (
   apiGet<{ items: StockItem[]; storeId: string }>(
     `/inventory?${query(search, offset)}&storeId=${encodeURIComponent(storeId)}`,
     tenantId,
+  );
+
+export const listLowStock = (tenantId: string, storeId: string, offset = 0) =>
+  apiGet<{ items: ReorderItem[] }>(
+    `/inventory/low-stock?storeId=${encodeURIComponent(storeId)}&limit=100&offset=${offset}`,
+    tenantId,
+  );
+
+export const saveReorder = (
+  tenantId: string,
+  variantId: string,
+  input: {
+    storeId: string;
+    threshold: number | null;
+    preferredSupplierId: string | null;
+  },
+) =>
+  apiFetch<{ saved: boolean }>(
+    `/inventory/reorder/${encodeURIComponent(variantId)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(input),
+      tenantId,
+    },
   );
 
 export const listMovements = (tenantId: string, storeId: string, offset = 0) =>
