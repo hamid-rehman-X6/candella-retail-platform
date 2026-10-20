@@ -76,11 +76,11 @@ func invitationToken() (string, error) {
 
 func (s *StaffService) deliver(ctx context.Context, invitation *StaffInvitation, token string) error {
 	link := s.appBaseURL + "/invitations/accept?token=" + url.QueryEscape(token)
-	return s.mail.Send(ctx, mailer.Email{
-		To:      invitation.Email,
-		Subject: "Join your Candella workspace",
-		Text:    "You have been invited to a Candella workspace as " + invitation.Role + ". Open this link within 7 days, sign in with this email address, and accept: " + link,
-	})
+	message, err := mailer.StaffInvitationEmail(invitation.Email, invitation.Role, link, time.Until(invitation.ExpiresAt))
+	if err != nil {
+		return err
+	}
+	return s.mail.Send(ctx, message)
 }
 
 func (s *StaffService) Invite(ctx context.Context, tenantID, actorID, email, role string) (*StaffInvitation, error) {

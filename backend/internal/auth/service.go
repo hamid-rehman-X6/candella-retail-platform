@@ -252,11 +252,11 @@ func (s *Service) issueEmailCode(ctx context.Context, user *User) error {
 	if err := s.repo.CreateVerificationCode(ctx, vc); err != nil {
 		return err
 	}
-	return s.mailer.Send(ctx, mailer.Email{
-		To:      user.Email,
-		Subject: "Your Candella verification code",
-		Text:    "Your verification code is " + code + ". It expires in 10 minutes.",
-	})
+	message, err := mailer.VerificationEmail(user.Email, user.FullName, code, s.cfg.EmailCodeTTL)
+	if err != nil {
+		return err
+	}
+	return s.mailer.Send(ctx, message)
 }
 
 // checkCode validates a one-time code against the active row, enforcing expiry and

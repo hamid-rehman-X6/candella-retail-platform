@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"candella-ecosystem/backend/pkg/crypto"
@@ -37,14 +38,12 @@ func (s *Service) ForgotPassword(ctx context.Context, email string) error {
 		return err
 	}
 
-	resetURL := s.cfg.AppBaseURL + "/reset-password?token=" + raw
-	return s.mailer.Send(ctx, mailer.Email{
-		To:      user.Email,
-		Subject: "Reset your Candella password",
-		Text: "We received a request to reset your password.\n\n" +
-			"Reset it here: " + resetURL + "\n\n" +
-			"This link expires in 30 minutes. If you didn't request this, you can safely ignore this email.",
-	})
+	resetURL := strings.TrimRight(s.cfg.AppBaseURL, "/") + "/reset-password?token=" + raw
+	message, err := mailer.PasswordResetEmail(user.Email, user.FullName, resetURL, s.cfg.ResetTokenTTL)
+	if err != nil {
+		return err
+	}
+	return s.mailer.Send(ctx, message)
 }
 
 // ResetPassword sets a new password from a valid reset token, then revokes all of

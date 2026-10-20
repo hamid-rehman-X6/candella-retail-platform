@@ -35,19 +35,20 @@ func (m *staffTestMailer) Send(_ context.Context, message mailer.Email) error {
 
 func staffToken(t *testing.T, message mailer.Email) string {
 	t.Helper()
-	parts := strings.Fields(message.Text)
-	if len(parts) == 0 {
-		t.Fatal("invitation email was empty")
+	if message.HTML == "" || !strings.Contains(message.HTML, "Accept invitation") {
+		t.Fatal("invitation email has no HTML action")
 	}
-	link, err := url.Parse(parts[len(parts)-1])
-	if err != nil {
-		t.Fatal(err)
+	for _, part := range strings.Fields(message.Text) {
+		if !strings.HasPrefix(part, "https://") {
+			continue
+		}
+		link, err := url.Parse(part)
+		if err == nil && link.Query().Get("token") != "" {
+			return link.Query().Get("token")
+		}
 	}
-	token := link.Query().Get("token")
-	if token == "" {
-		t.Fatal("invitation token missing")
-	}
-	return token
+	t.Fatal("invitation token missing from plain-text email")
+	return ""
 }
 
 // Migrations run only on a named local disposable DB or this repo's CI service.

@@ -532,6 +532,9 @@ func (m *captureMailer) codeFor(t *testing.T, to string) string {
 	for i := len(m.sent) - 1; i >= 0; i-- {
 		if m.sent[i].To == to {
 			if match := sixDigits.FindStringSubmatch(m.sent[i].Text); match != nil {
+				if !strings.Contains(m.sent[i].HTML, match[1]) {
+					t.Fatal("verification email HTML does not contain its plain-text code")
+				}
 				return match[1]
 			}
 		}
