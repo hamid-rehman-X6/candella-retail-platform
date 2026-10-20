@@ -16,7 +16,10 @@ export function register(input: {
   email: string;
   password: string;
 }) {
-  return apiPost<{ userId: string; email: string }>("/auth/register", input);
+  return apiPost<{ userId: string; email: string; emailSent: boolean }>(
+    "/auth/register",
+    input,
+  );
 }
 
 export function verifyEmail(input: { email: string; code: string }) {
@@ -126,6 +129,7 @@ export function createWorkspace(input: {
 // ---- Small helpers to carry state between auth steps (client-only) ---------
 
 const EMAIL_KEY = "candella:pending-email";
+const EMAIL_DELIVERY_FAILED_KEY = "candella:email-delivery-failed";
 const MFA_TOKEN_KEY = "candella:mfa-token";
 const INVITATION_TOKEN_KEY = "candella:pending-invitation";
 
@@ -151,6 +155,15 @@ export const pendingEmail = {
       ? ""
       : (sessionStorage.getItem(EMAIL_KEY) ?? ""),
   clear: () => sessionStorage.removeItem(EMAIL_KEY),
+};
+
+export const pendingEmailDelivery = {
+  setFailed: () => sessionStorage.setItem(EMAIL_DELIVERY_FAILED_KEY, "true"),
+  getFailed: () =>
+    typeof window === "undefined"
+      ? ""
+      : (sessionStorage.getItem(EMAIL_DELIVERY_FAILED_KEY) ?? ""),
+  clear: () => sessionStorage.removeItem(EMAIL_DELIVERY_FAILED_KEY),
 };
 
 export const mfaToken = {

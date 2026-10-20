@@ -58,33 +58,36 @@ func NewService(
 	}
 }
 
-// Register creates an unverified account and emails a 6-digit verification code.
-func (s *Service) Register(ctx context.Context, req registerRequest) (*User, error) {
+// Register creates an unverified account and attempts to email a verification code.
+// Once the user row exists, delivery failure cannot roll that row back. Report
+// delivery separately so callers can guide the user to retry verification.
+func (s *Service) Register(ctx context.Context, req registerRequest) (*User, bool, error) {
 	if err := req.validate(); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if _, err := s.repo.GetUserByEmail(ctx, req.Email); err == nil {
-		return nil, ErrEmailTaken
+		return nil, false, ErrEmailTaken
 	} else if !errors.Is(err, ErrNotFound) {
-		return nil, err
+		return nil, false, err
 	}
 
 	hash, err := s.hasher.Hash(req.Password)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	u := &User{Email: req.Email, PasswordHash: &hash, FullName: req.FullName}
 	if err := s.repo.CreateUser(ctx, u); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	if err := s.issueEmailCode(ctx, u); err != nil {
-		return nil, err
+	deliveryErr := s.issueEmailCode(ctx, u)
+	if deliveryErr != nil {
+		s.log.Error("registration verification email failed", "user_id", u.ID, "error", deliveryErr)
 	}
 	s.audit(ctx, &u.ID, "user.registered", "user", u.ID)
-	return u, nil
+	return u, deliveryErr == nil, nil
 }
 
 // VerifyEmail checks the 6-digit code, marks the email verified, and starts a

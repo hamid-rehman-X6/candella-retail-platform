@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -74,6 +75,38 @@ func TestAuthAccessBoundariesPostgres(t *testing.T) {
 		code, res := b.do("POST", "/auth/login", map[string]string{"email": email, "password": password})
 		expectError(t, "unverified login", code, res, http.StatusForbidden, "email_not_verified")
 		expectNoSession(t, b)
+	})
+
+	t.Run("failed email delivery keeps a recoverable unverified account", func(t *testing.T) {
+		b := env.browser()
+		email := env.newEmail()
+		env.mail.setFailure(true)
+		defer env.mail.setFailure(false)
+		code, res := b.do("POST", "/auth/register", map[string]string{"fullName": "Delivery Test", "email": email, "password": password})
+		if code != http.StatusCreated {
+			t.Fatalf("register after mail failure = %d %+v", code, res.Error)
+		}
+		var created struct {
+			EmailSent bool `json:"emailSent"`
+		}
+		mustDecode(t, res.Data, &created)
+		if created.EmailSent {
+			t.Fatal("registration claimed the failed email was sent")
+		}
+		code, res = b.do("POST", "/auth/register", map[string]string{"fullName": "Delivery Test", "email": email, "password": password})
+		expectError(t, "duplicate register", code, res, http.StatusConflict, "email_taken")
+		code, res = b.do("POST", "/auth/login", map[string]string{"email": email, "password": password})
+		expectError(t, "unverified login", code, res, http.StatusForbidden, "email_not_verified")
+		expectNoSession(t, b)
+
+		env.mail.setFailure(false)
+		if code, res = b.do("POST", "/auth/resend-verification", map[string]string{"email": email}); code != http.StatusOK {
+			t.Fatalf("resend = %d %+v", code, res.Error)
+		}
+		code, res = b.do("POST", "/auth/verify-email", map[string]string{"email": email, "code": env.mail.codeFor(t, email)})
+		if code != http.StatusOK {
+			t.Fatalf("verify after resend = %d %+v", code, res.Error)
+		}
 	})
 
 	t.Run("logout revokes the session server-side", func(t *testing.T) {
@@ -303,8 +336,16 @@ func (e *authEnv) newEmail() string {
 func (e *authEnv) signUp(b *browser, password string) string {
 	e.t.Helper()
 	email := e.newEmail()
-	if code, res := b.do("POST", "/auth/register", map[string]string{"fullName": "Test Owner", "email": email, "password": password}); code != http.StatusCreated {
+	code, res := b.do("POST", "/auth/register", map[string]string{"fullName": "Test Owner", "email": email, "password": password})
+	if code != http.StatusCreated {
 		e.t.Fatalf("register = %d %+v", code, res.Error)
+	}
+	var created struct {
+		EmailSent bool `json:"emailSent"`
+	}
+	mustDecode(e.t, res.Data, &created)
+	if !created.EmailSent {
+		e.t.Fatal("registration did not report successful email delivery")
 	}
 	if code, res := b.do("POST", "/auth/verify-email", map[string]string{"email": email, "code": e.mail.codeFor(e.t, email)}); code != http.StatusOK {
 		e.t.Fatalf("verify-email = %d %+v", code, res.Error)
@@ -514,11 +555,21 @@ func randomBytes(t *testing.T, n int) []byte {
 type captureMailer struct {
 	mu   sync.Mutex
 	sent []mailer.Email
+	fail bool
+}
+
+func (m *captureMailer) setFailure(fail bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.fail = fail
 }
 
 func (m *captureMailer) Send(_ context.Context, e mailer.Email) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.fail {
+		return errors.New("simulated delivery failure")
+	}
 	m.sent = append(m.sent, e)
 	return nil
 }

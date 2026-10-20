@@ -31,4 +31,6 @@ The sender address must use the verified domain. Password-reset and staff-invita
 
 With `MAILER=console`, local development logs the plain-text email instead of sending it. Production refuses console mode. Selecting `MAILER=resend` without an API key or valid `EMAIL_FROM` fails at startup. Resend API errors are reported as delivery failures; the sender does not silently switch to console.
 
+For an initial local test before verifying your own domain, Resend's sample sender is `Candella <onboarding@resend.dev>`. Its test-domain restrictions apply, so use the email address associated with your Resend account as the recipient. For real users, verify your own domain and change `EMAIL_FROM` to an address on it. A successful signup response includes `emailSent`; if delivery fails after the account row is saved, the UI keeps the user on the verification path and offers an immediate resend. The account stays unverified until a valid code is entered. Check backend logs for `registration verification email failed` and the provider status when diagnosing delivery.
+
 No database migration is required. The application uses the existing [Resend Send Email API](https://resend.com/docs/api-reference/emails/send-email) with HTML and text bodies. Check a test inbox in the target email clients before live rollout.

@@ -12,7 +12,12 @@ import { Divider } from "@/components/auth/divider";
 import { Button } from "@/components/ui/button";
 import { isValidEmail, getPasswordStrength } from "@/lib/validation";
 import { ApiError } from "@/lib/api";
-import { register, googleStartUrl, pendingEmail } from "@/lib/auth-api";
+import {
+  register,
+  googleStartUrl,
+  pendingEmail,
+  pendingEmailDelivery,
+} from "@/lib/auth-api";
 
 export function SignupForm() {
   const router = useRouter();
@@ -44,8 +49,10 @@ export function SignupForm() {
     setFormError(undefined);
     setLoading(true);
     try {
-      await register({ fullName: name, email, password });
+      const result = await register({ fullName: name, email, password });
       pendingEmail.set(email);
+      if (result.emailSent) pendingEmailDelivery.clear();
+      else pendingEmailDelivery.setFailed();
       router.push("/verify-email");
     } catch (err) {
       setLoading(false);
