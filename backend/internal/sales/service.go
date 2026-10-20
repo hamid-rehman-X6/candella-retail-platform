@@ -35,6 +35,7 @@ type Repository interface {
 	Search(context.Context, string, SalesFilter) ([]SaleSummary, bool, error)
 	CreateReturn(ctx context.Context, tenantID, userID, processorName, orderID string, in ReturnInput) (*Return, bool, error)
 	FindReturn(ctx context.Context, tenantID, returnID string) (*Return, error)
+	DailyReport(context.Context, string, ReportFilter) (*DailyReport, error)
 }
 
 type Service struct{ repo Repository }

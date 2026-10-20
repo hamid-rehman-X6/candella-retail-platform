@@ -61,6 +61,10 @@ func (f *fakeRepository) FindReturn(context.Context, string, string) (*Return, e
 	f.called = true
 	return &Return{}, nil
 }
+func (f *fakeRepository) DailyReport(context.Context, string, ReportFilter) (*DailyReport, error) {
+	f.called = true
+	return &DailyReport{}, nil
+}
 
 func TestReturnValidationAndStableLockOrder(t *testing.T) {
 	const order = "ord_AAAAAAAAAAAA"

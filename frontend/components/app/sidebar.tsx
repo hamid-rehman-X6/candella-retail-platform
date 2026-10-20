@@ -29,11 +29,7 @@ const mainNav: { label: string; path: string; icon: LucideIcon }[] = [
   { label: "Purchases", path: "/purchases", icon: Package },
   { label: "Sales", path: "/sales", icon: Store },
   { label: "Customers", path: "/customers", icon: Users },
-];
-
-// Business modules ship later; shown now so the shell reads as a real app.
-const moduleNav: { label: string; icon: LucideIcon }[] = [
-  { label: "Reports", icon: BarChart3 },
+  { label: "Reports", path: "/reports", icon: BarChart3 },
 ];
 
 function NavLabel({
@@ -170,7 +166,11 @@ export function Sidebar({
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {mainNav
-            .filter((item) => item.label !== "Purchases" || canManageStaff)
+            .filter(
+              (item) =>
+                !["Purchases", "Reports"].includes(item.label) ||
+                canManageStaff,
+            )
             .map((item) => {
               const href = workspacePath(current.slug, item.path);
               const active = pathname === href;
@@ -204,14 +204,6 @@ export function Sidebar({
           >
             Modules
           </p>
-          {moduleNav.map((item) => (
-            <SoonItem
-              key={item.label}
-              label={item.label}
-              icon={item.icon}
-              collapsed={collapsed}
-            />
-          ))}
           {canManageStaff && (
             <Link
               href={workspacePath(current.slug, "/stores")}
