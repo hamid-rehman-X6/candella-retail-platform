@@ -21,6 +21,9 @@ ALTER TABLE customers FORCE ROW LEVEL SECURITY;
 CREATE POLICY customers_tenant ON customers
   USING (tenant_id = current_setting('app.current_tenant_id', true))
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true));
+-- Platform operators may count customer records without reading contact data.
+GRANT SELECT (id, tenant_id, status, created_at, updated_at) ON customers TO candella_platform;
+CREATE POLICY customers_platform_read ON customers FOR SELECT TO candella_platform USING (true);
 
 ALTER TABLE orders ADD COLUMN customer_id TEXT;
 ALTER TABLE orders ADD COLUMN customer_name_snapshot TEXT NOT NULL DEFAULT '';
