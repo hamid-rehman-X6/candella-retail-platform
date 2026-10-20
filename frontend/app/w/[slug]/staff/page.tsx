@@ -18,6 +18,8 @@ import {
 } from "@/lib/staff-api";
 
 const roles = ["member", "admin", "owner"] as const;
+const roleLabel = (role: StaffMember["role"]) =>
+  role.charAt(0).toUpperCase() + role.slice(1);
 
 export default function StaffPage() {
   const { current, user } = useApp();
@@ -149,7 +151,7 @@ export default function StaffPage() {
             className="mt-2 w-full rounded-xl border border-line bg-canvas px-3 py-2.5 outline-none focus:border-accent"
             options={roles
               .filter((item) => current.role === "owner" || item !== "owner")
-              .map((item) => ({ value: item, label: item }))}
+              .map((item) => ({ value: item, label: roleLabel(item) }))}
           />
         </label>
         <button
@@ -208,7 +210,7 @@ export default function StaffPage() {
                       .filter(
                         (item) => current.role === "owner" || item !== "owner",
                       )
-                      .map((item) => ({ value: item, label: item }))}
+                      .map((item) => ({ value: item, label: roleLabel(item) }))}
                   />
                   <button
                     type="button"

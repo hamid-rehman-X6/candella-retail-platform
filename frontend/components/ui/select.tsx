@@ -33,7 +33,10 @@ export function Select({
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  const [position, setPosition] = useState<React.CSSProperties>({});
+  const [position, setPosition] = useState<React.CSSProperties>({
+    position: "fixed",
+    visibility: "hidden",
+  });
   const selected = options.find((option) => option.value === value);
   const isOpen = open && !disabled && options.length > 0;
   const highlight =
@@ -74,17 +77,32 @@ export function Select({
   useLayoutEffect(() => {
     if (!isOpen || !triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    const height = Math.min(280, options.length * 40 + 12);
-    const spaceBelow = window.innerHeight - rect.bottom - 14;
-    const spaceAbove = rect.top - 14;
-    const above = spaceBelow < height && spaceAbove > spaceBelow;
-    const width = Math.min(rect.width, window.innerWidth - 16);
+    const menu = menuRef.current;
+    if (!menu) return;
+    const gap = 6;
+    const edge = 8;
+    const desiredHeight = Math.min(320, Math.ceil(menu.scrollHeight + 2));
+    const spaceBelow = window.innerHeight - rect.bottom - gap - edge;
+    const spaceAbove = rect.top - gap - edge;
+    const above = spaceBelow < desiredHeight && spaceAbove > spaceBelow;
+    const width = Math.min(
+      Math.max(rect.width, 192),
+      window.innerWidth - edge * 2,
+    );
     const available = above ? spaceAbove : spaceBelow;
-    const visibleHeight = Math.min(height, Math.max(48, available));
+    const visibleHeight = Math.min(desiredHeight, Math.max(40, available));
     setPosition({
       position: "fixed",
-      left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
-      top: above ? rect.top - visibleHeight - 6 : rect.bottom + 6,
+      left: Math.max(
+        edge,
+        Math.min(rect.left, window.innerWidth - width - edge),
+      ),
+      top: above
+        ? Math.max(edge, rect.top - visibleHeight - gap)
+        : Math.min(
+            rect.bottom + gap,
+            window.innerHeight - visibleHeight - edge,
+          ),
       width,
       maxHeight: visibleHeight,
     });
@@ -159,7 +177,7 @@ export function Select({
           }
         }}
         className={cn(
-          "flex min-h-10 items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3 py-2.5 text-left text-sm text-foreground shadow-sm transition-colors hover:border-line-strong focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+          "flex min-h-10 cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3 py-2.5 text-left text-sm text-foreground shadow-sm transition-colors hover:border-line-strong focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
           tone === "rose" &&
             "border-line-strong bg-surface-2 text-foreground focus-visible:border-platform-accent focus-visible:ring-platform-accent/30",
           className,
@@ -185,7 +203,7 @@ export function Select({
             aria-label={ariaLabel}
             style={position}
             className={cn(
-              "z-[100] overflow-y-auto rounded-xl border border-line-strong bg-canvas-raised p-1.5 shadow-2xl shadow-black/60",
+              "z-[100] overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-line-strong bg-canvas-raised p-1.5 shadow-xl shadow-black/15",
               tone === "rose" && "border-line-strong bg-canvas-raised",
             )}
           >
@@ -203,8 +221,8 @@ export function Select({
                   "flex min-h-10 items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-foreground transition-colors",
                   !option.disabled && "cursor-pointer",
                   option.disabled && "cursor-not-allowed opacity-40",
-                  active === index && "bg-foreground/8",
-                  value === option.value && highlight,
+                  active === index && "bg-accent/10",
+                  value === option.value && `font-medium ${highlight}`,
                 )}
               >
                 <span className="min-w-0 truncate">{option.label}</span>
