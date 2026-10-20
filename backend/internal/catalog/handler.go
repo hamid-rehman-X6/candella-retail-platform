@@ -206,6 +206,49 @@ func (h *Handler) ListStock(w http.ResponseWriter, r *http.Request) {
 	}
 	response.JSON(w, http.StatusOK, map[string]any{"items": items, "storeId": storeID})
 }
+func (h *Handler) ListLowStock(w http.ResponseWriter, r *http.Request) {
+	t, _ := scope(r)
+	if rejectReadOnly(w, t) {
+		return
+	}
+	var err error
+	r, err = selectStore(r, r.URL.Query().Get("storeId"))
+	if err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	limit, offset := page(r)
+	items, err := h.svc.ListLowStock(r.Context(), t.TenantID, limit, offset)
+	if err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"items": items})
+}
+func (h *Handler) SaveReorder(w http.ResponseWriter, r *http.Request) {
+	t, u := scope(r)
+	if rejectReadOnly(w, t) {
+		return
+	}
+	var in ReorderInput
+	if err := decode(r, &in); err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	var err error
+	r, err = selectStore(r, in.StoreID)
+	if err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	if err := h.svc.SaveReorder(r.Context(), t.TenantID, chi.URLParam(r, "variantID"), in); err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	h.auditor.Record(r.Context(), audit.Entry{UserID: &u.ID, Action: "inventory.reorder_setting_updated", EntityType: "product_variant", EntityID: chi.URLParam(r, "variantID"),
+		Metadata: map[string]any{"storeId": in.StoreID, "threshold": in.Threshold}})
+	response.JSON(w, http.StatusOK, map[string]any{"saved": true})
+}
 func (h *Handler) RecordMovement(w http.ResponseWriter, r *http.Request) {
 	t, u := scope(r)
 	if rejectReadOnly(w, t) {

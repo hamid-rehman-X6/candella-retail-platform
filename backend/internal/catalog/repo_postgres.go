@@ -257,9 +257,15 @@ func (r *postgresRepository) ListStock(ctx context.Context, tenantID, search str
 		}
 		storeID = location.ID
 		rows, err := tx.Query(ctx, `SELECT v.id, p.id, p.name, v.name, v.sku, v.barcode, v.price_minor,
-			COALESCE(s.quantity, 0) FROM product_variants v
+			COALESCE(s.quantity, 0), rs.threshold, COALESCE(ps.id, fs.id), COALESCE(ps.name, fs.name), ps.id FROM product_variants v
 			JOIN products p ON p.tenant_id=v.tenant_id AND p.id=v.product_id
 			LEFT JOIN stock_levels s ON s.tenant_id=v.tenant_id AND s.variant_id=v.id AND s.store_id=$2
+			LEFT JOIN reorder_settings rs ON rs.tenant_id=v.tenant_id AND rs.variant_id=v.id AND rs.store_id=$2
+			LEFT JOIN suppliers ps ON ps.tenant_id=rs.tenant_id AND ps.id=rs.preferred_supplier_id AND ps.status='active'
+			LEFT JOIN LATERAL (SELECT supplier.id, supplier.name FROM supplier_variants sv
+			  JOIN suppliers supplier ON supplier.tenant_id=sv.tenant_id AND supplier.id=sv.supplier_id
+			  WHERE sv.tenant_id=v.tenant_id AND sv.variant_id=v.id AND supplier.status='active'
+			  ORDER BY (sv.cost_minor IS NULL), sv.cost_minor, lower(supplier.name), supplier.id LIMIT 1) fs ON true
 			WHERE v.tenant_id=$1 AND p.status='active' AND ($3='' OR p.name ILIKE '%' || $3 || '%'
 			OR v.name ILIKE '%' || $3 || '%' OR v.sku ILIKE '%' || $3 || '%' OR v.barcode ILIKE '%' || $3 || '%')
 			ORDER BY p.name, v.name, v.id LIMIT $4 OFFSET $5`, tenantID, storeID, search, limit, offset)
@@ -270,7 +276,8 @@ func (r *postgresRepository) ListStock(ctx context.Context, tenantID, search str
 		for rows.Next() {
 			var item StockItem
 			if err := rows.Scan(&item.VariantID, &item.ProductID, &item.ProductName, &item.VariantName,
-				&item.SKU, &item.Barcode, &item.PriceMinor, &item.Quantity); err != nil {
+				&item.SKU, &item.Barcode, &item.PriceMinor, &item.Quantity, &item.ReorderThreshold,
+				&item.PreferredSupplierID, &item.PreferredSupplierName, &item.ConfiguredSupplierID); err != nil {
 				return err
 			}
 			out = append(out, item)

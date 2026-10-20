@@ -23,14 +23,29 @@ type Product struct {
 }
 
 type StockItem struct {
-	VariantID   string  `json:"variantId"`
-	ProductID   string  `json:"productId"`
-	ProductName string  `json:"productName"`
-	VariantName string  `json:"variantName"`
-	SKU         string  `json:"sku"`
-	Barcode     *string `json:"barcode"`
-	PriceMinor  int64   `json:"priceMinor"`
-	Quantity    int64   `json:"quantity"`
+	VariantID             string  `json:"variantId"`
+	ProductID             string  `json:"productId"`
+	ProductName           string  `json:"productName"`
+	VariantName           string  `json:"variantName"`
+	SKU                   string  `json:"sku"`
+	Barcode               *string `json:"barcode"`
+	PriceMinor            int64   `json:"priceMinor"`
+	Quantity              int64   `json:"quantity"`
+	ReorderThreshold      *int64  `json:"reorderThreshold"`
+	PreferredSupplierID   *string `json:"preferredSupplierId"`
+	PreferredSupplierName *string `json:"preferredSupplierName"`
+	ConfiguredSupplierID  *string `json:"configuredSupplierId"`
+}
+
+type ReorderItem struct {
+	StockItem
+	SuggestedQuantity int64 `json:"suggestedQuantity"`
+}
+
+type ReorderInput struct {
+	StoreID             string  `json:"storeId"`
+	Threshold           *int64  `json:"threshold"`
+	PreferredSupplierID *string `json:"preferredSupplierId"`
 }
 
 type Summary struct {

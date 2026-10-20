@@ -13,6 +13,7 @@ import { useApp, workspacePath } from "@/components/app/app-context";
 import { useStoreSelection } from "@/lib/use-store-selection";
 import { formatDateTime } from "@/lib/datetime";
 import { Select } from "@/components/ui/select";
+import { ReorderPanel } from "@/components/inventory/reorder-panel";
 import {
   getCatalogSummary,
   listMovements,
@@ -53,6 +54,8 @@ export default function InventoryPage() {
   const loadID = useRef(0);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [reorderItem, setReorderItem] = useState<StockItem | null>(null);
+  const [reorderVersion, setReorderVersion] = useState(0);
 
   const refresh = useCallback(
     async (q = search) => {
@@ -70,6 +73,7 @@ export default function InventoryPage() {
         setItems(stock.items);
         setMovements(ledger.movements);
         setSummary(counts.summary);
+        setReorderVersion((v) => v + 1);
         setOffset(0);
         setHasMore(stock.items.length === 100);
       } catch (e) {
@@ -96,6 +100,7 @@ export default function InventoryPage() {
     setMovements([]);
     setSummary(null);
     setSelected(null);
+    setReorderItem(null);
     requestKey.current = null;
     selectStore(id);
   }
@@ -226,6 +231,18 @@ export default function InventoryPage() {
           </div>
         ))}
       </div>
+      {editable && (
+        <ReorderPanel
+          key={storeId}
+          tenantId={current.id}
+          slug={current.slug}
+          storeId={storeId}
+          version={reorderVersion}
+          selected={reorderItem}
+          onClose={() => setReorderItem(null)}
+          onConfigured={() => void refresh()}
+        />
+      )}
       <label className="relative block max-w-xl">
         <span className="sr-only">Search inventory</span>
         <Search className="absolute top-3 left-3 text-muted" size={17} />
@@ -305,6 +322,15 @@ export default function InventoryPage() {
                           className="rounded-lg border border-line px-2 py-1.5 text-xs hover:border-accent"
                         >
                           Correct count
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReorderItem(item)}
+                          className="cursor-pointer rounded-lg border border-line px-2 py-1.5 text-xs hover:border-accent"
+                        >
+                          {item.reorderThreshold == null
+                            ? "Set alert"
+                            : `Alert ≤ ${item.reorderThreshold}`}
                         </button>
                       </div>
                     )}
