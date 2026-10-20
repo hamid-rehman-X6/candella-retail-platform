@@ -28,7 +28,7 @@ var tenantTables = []string{
 	"stores", "store_access", "products", "product_variants", "stock_levels",
 	"stock_movements", "document_sequences", "orders", "order_items", "payments",
 	"suppliers", "supplier_variants", "catalog_import_batches", "registers", "register_sessions",
-	"returns", "return_items",
+	"returns", "return_items", "customers",
 }
 
 // controlPlaneTables carry a tenant_id but are read before a tenant is in scope:
@@ -117,7 +117,7 @@ func setupIsolation(t *testing.T) *isolationEnv {
 }
 
 type seededTenant struct {
-	tenantID, userID, storeID, productID, variantID, orderID, supplierID, registerID, shiftID, returnID string
+	tenantID, userID, storeID, productID, variantID, orderID, supplierID, customerID, registerID, shiftID, returnID string
 }
 
 // seedTenant writes one row of every tenant table for a new tenant, as the
@@ -127,7 +127,7 @@ func seedTenant(t *testing.T, env *isolationEnv) seededTenant {
 	s := seededTenant{
 		tenantID: id.New(id.Tenant), userID: id.New(id.User), storeID: id.New(id.Store),
 		productID: id.New(id.Product), variantID: id.New(id.ProductVariant),
-		orderID: id.New(id.Order), supplierID: id.New(id.Supplier),
+		orderID: id.New(id.Order), supplierID: id.New(id.Supplier), customerID: id.New(id.Customer),
 		registerID: id.New(id.Register), shiftID: id.New(id.RegisterSession), returnID: id.New(id.Return),
 	}
 	statements := []struct {
@@ -177,6 +177,7 @@ func seedTenant(t *testing.T, env *isolationEnv) seededTenant {
 		  VALUES ($1, $2, $3, $4, $5, 1, 15000, 15000)`,
 			[]any{id.New(id.ReturnItem), s.tenantID, s.returnID, s.orderID, s.variantID}},
 		{`INSERT INTO suppliers (id, tenant_id, name) VALUES ($1, $2, 'Supplier')`, []any{s.supplierID, s.tenantID}},
+		{`INSERT INTO customers (id, tenant_id, name, phone) VALUES ($1, $2, 'Customer', '03001234567')`, []any{s.customerID, s.tenantID}},
 		{`INSERT INTO supplier_variants (tenant_id, supplier_id, variant_id) VALUES ($1, $2, $3)`,
 			[]any{s.tenantID, s.supplierID, s.variantID}},
 		{`INSERT INTO catalog_import_batches (id, tenant_id, idempotency_key, request_hash, mode, created_by)
@@ -322,6 +323,7 @@ func TestTenantIsolation(t *testing.T) {
 			`UPDATE stock_levels SET quantity = 999 WHERE tenant_id = $1`,
 			`UPDATE stores SET name = 'Hijacked' WHERE tenant_id = $1`,
 			`UPDATE suppliers SET name = 'Hijacked' WHERE tenant_id = $1`,
+			`UPDATE customers SET name = 'Hijacked' WHERE tenant_id = $1`,
 			`UPDATE document_sequences SET current_number = 999 WHERE tenant_id = $1`,
 			`DELETE FROM store_access WHERE tenant_id = $1`,
 			`UPDATE register_sessions SET status = 'closed' WHERE tenant_id = $1`,
@@ -351,6 +353,9 @@ func TestTenantIsolation(t *testing.T) {
 		_, err := inTenant(env, a.tenantID, `INSERT INTO products (id, tenant_id, name) VALUES ($1, $2, 'Planted')`,
 			id.New(id.Product), b.tenantID)
 		expectCode(t, err, permissionDenied, "product for tenant B")
+		_, err = inTenant(env, a.tenantID, `INSERT INTO customers (id, tenant_id, name, phone) VALUES ($1, $2, 'Planted', '12345')`,
+			id.New(id.Customer), b.tenantID)
+		expectCode(t, err, permissionDenied, "customer for tenant B")
 		_, err = inTenant(env, a.tenantID, `
 			INSERT INTO orders (id, tenant_id, store_id, order_number, idempotency_key, request_hash,
 			  currency_code, subtotal_minor, grand_total_minor, created_by, store_name_snapshot)
@@ -369,6 +374,11 @@ func TestTenantIsolation(t *testing.T) {
 			INSERT INTO stock_levels (id, tenant_id, store_id, variant_id, quantity) VALUES ($1, $2, $3, $4, 1)`,
 			id.New(id.StockLevel), a.tenantID, a.storeID, b.variantID)
 		expectCode(t, err, foreignKey, "stock for tenant B's variant")
+		_, err = inTenant(env, a.tenantID, `INSERT INTO orders (id, tenant_id, store_id, order_number, idempotency_key,
+			request_hash, currency_code, subtotal_minor, grand_total_minor, created_by, store_name_snapshot, customer_id)
+			VALUES ($1, $2, $3, 'POS-999998', $1, repeat('c',64), 'PKR', 0, 0, $4, 'Main', $5)`,
+			id.New(id.Order), a.tenantID, a.storeID, a.userID, b.customerID)
+		expectCode(t, err, foreignKey, "sale for tenant B's customer")
 		_, err = inTenant(env, a.tenantID, `
 			INSERT INTO order_items (id, tenant_id, order_id, variant_id, product_name_snapshot,
 			  variant_name_snapshot, sku_snapshot, quantity, unit_price_minor, line_total_minor)
@@ -449,6 +459,8 @@ func TestTenantIsolation(t *testing.T) {
 			`SELECT count(*) FROM password_reset_tokens`,
 			`SELECT count(*) FROM verification_codes`,
 			`SELECT count(*) FROM staff_invitations`,
+			`SELECT phone FROM customers LIMIT 1`,
+			`SELECT email FROM customers LIMIT 1`,
 			`UPDATE platform_admins SET role = 'owner'`,
 		} {
 			_, err := env.platform.Exec(env.ctx, query)

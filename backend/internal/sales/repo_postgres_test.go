@@ -14,6 +14,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
+	"candella-ecosystem/backend/internal/customer"
 	"candella-ecosystem/backend/internal/register"
 	"candella-ecosystem/backend/internal/store"
 	"candella-ecosystem/backend/migrations"
@@ -345,5 +346,69 @@ func TestCashCheckoutPostgres(t *testing.T) {
 		if item.ID == branchSale.ID {
 			t.Fatal("revoked cashier saw branch sale in history")
 		}
+	}
+	// Customer lookup is tenant scoped, staff contacts are redacted, and a
+	// customer-linked sale retains its name after the customer is archived.
+	customerSvc := customer.NewService(customer.NewPostgresRepository(appPool))
+	linkedCustomer, err := customerSvc.Create(ctx, tenantA, customer.Input{Name: "Ada", Phone: "03001234567"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := customerSvc.Create(ctx, tenantA, customer.Input{Name: "Another", Phone: "03001234567"}); !errors.Is(err, customer.ErrDuplicate) {
+		t.Fatalf("duplicate phone: %v", err)
+	}
+	emailCustomer, err := customerSvc.Create(ctx, tenantA, customer.Input{Name: "Email customer", Email: "Hello@Example.test"})
+	if err != nil || emailCustomer.Email != "hello@example.test" {
+		t.Fatalf("normalized email customer: %+v %v", emailCustomer, err)
+	}
+	if _, err := customerSvc.Create(ctx, tenantA, customer.Input{Name: "Duplicate email", Email: "HELLO@example.test"}); !errors.Is(err, customer.ErrDuplicate) {
+		t.Fatalf("duplicate email: %v", err)
+	}
+	otherCustomer, err := customerSvc.Create(ctx, tenantB, customer.Input{Name: "Other shop", Phone: "03001234567"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	memberCustomers, err := customerSvc.List(ctx, tenantA, "0300", false, 50, 0)
+	if err != nil || len(memberCustomers) != 1 || memberCustomers[0].Phone != "" {
+		t.Fatalf("redacted lookup: %+v %v", memberCustomers, err)
+	}
+	if foreign, err := customerSvc.List(ctx, tenantB, "Ada", true, 50, 0); err != nil || len(foreign) != 0 {
+		t.Fatalf("cross-tenant lookup: %+v %v", foreign, err)
+	}
+	linkedInput := CheckoutInput{RegisterID: registerA, CustomerID: linkedCustomer.ID, IdempotencyKey: "linked-sale-001", CashReceivedMinor: 1000,
+		Items: []CartItem{{VariantID: variantA, Quantity: 1}}}
+	if _, _, err := svc.Checkout(ctx, tenantA, userID, "Cashier", CheckoutInput{RegisterID: registerA, CustomerID: otherCustomer.ID, IdempotencyKey: "wrong-customer-01", CashReceivedMinor: 1000, Items: linkedInput.Items}); !errors.Is(err, ErrCustomerUnavailable) {
+		t.Fatalf("cross-tenant customer checkout: %v", err)
+	}
+	linkedSale, created, err := svc.Checkout(ctx, tenantA, userID, "Cashier", linkedInput)
+	if err != nil || !created || linkedSale.CustomerID != linkedCustomer.ID || linkedSale.CustomerName != "Ada" {
+		t.Fatalf("linked sale: %+v %v", linkedSale, err)
+	}
+	linkedReplay, created, err := svc.Checkout(ctx, tenantA, userID, "Cashier", linkedInput)
+	if err != nil || created || linkedReplay.ID != linkedSale.ID {
+		t.Fatalf("linked replay: %+v %v", linkedReplay, err)
+	}
+	changedCustomer := linkedInput
+	changedCustomer.CustomerID = ""
+	if _, _, err := svc.Checkout(ctx, tenantA, userID, "Cashier", changedCustomer); !errors.Is(err, ErrKeyReuse) {
+		t.Fatalf("changed customer replay: %v", err)
+	}
+	archived := "archived"
+	if _, err := customerSvc.Update(ctx, tenantA, linkedCustomer.ID, customer.UpdateInput{Status: &archived}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := svc.Checkout(ctx, tenantA, userID, "Cashier", CheckoutInput{RegisterID: registerA, CustomerID: linkedCustomer.ID, IdempotencyKey: "archived-sale-01", CashReceivedMinor: 1000, Items: linkedInput.Items}); !errors.Is(err, ErrCustomerUnavailable) {
+		t.Fatalf("archived customer checkout: %v", err)
+	}
+	history, err := customerSvc.History(ctx, tenantA, linkedCustomer.ID, 50, 0)
+	if err != nil || len(history) != 1 || history[0].ID != linkedSale.ID {
+		t.Fatalf("history: %+v %v", history, err)
+	}
+	if _, err := customerSvc.History(ctx, tenantB, linkedCustomer.ID, 50, 0); !errors.Is(err, customer.ErrNotFound) {
+		t.Fatalf("cross-tenant history: %v", err)
+	}
+	archivedReceipt, err := svc.Receipt(ctx, tenantA, linkedSale.ID)
+	if err != nil || archivedReceipt.CustomerName != "Ada" {
+		t.Fatalf("archived receipt: %+v %v", archivedReceipt, err)
 	}
 }

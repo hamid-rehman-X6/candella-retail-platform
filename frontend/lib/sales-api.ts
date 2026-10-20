@@ -23,6 +23,8 @@ export type ReturnSummary = {
 
 export type Sale = {
   id: string;
+  customerId: string;
+  customerName: string;
   storeId: string;
   storeName: string;
   /** Empty for sales made before shifts existed. */
@@ -82,6 +84,7 @@ export const listSales = (tenantId: string, filters: SalesFilters) => {
 export type CheckoutInput = {
   storeId: string;
   registerId: string;
+  customerId?: string;
   idempotencyKey: string;
   items: { variantId: string; quantity: number }[];
   cashReceivedMinor: number;

@@ -10,6 +10,7 @@ type CartItem struct {
 type CheckoutInput struct {
 	StoreID           string     `json:"storeId"`
 	RegisterID        string     `json:"registerId"`
+	CustomerID        string     `json:"customerId"`
 	IdempotencyKey    string     `json:"idempotencyKey"`
 	Items             []CartItem `json:"items"`
 	CashReceivedMinor int64      `json:"cashReceivedMinor"`
@@ -29,6 +30,8 @@ type SaleItem struct {
 
 type Sale struct {
 	ID                string     `json:"id"`
+	CustomerID        string     `json:"customerId"`
+	CustomerName      string     `json:"customerName"`
 	StoreID           string     `json:"storeId"`
 	StoreName         string     `json:"storeName"`
 	RegisterName      string     `json:"registerName"` // empty for sales made before shifts existed

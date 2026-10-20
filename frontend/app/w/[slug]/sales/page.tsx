@@ -13,6 +13,7 @@ import { ApiError } from "@/lib/api";
 import { listStock, type StockItem } from "@/lib/catalog-api";
 import { formatMoney, minorDigits, parseMoney } from "@/lib/money";
 import { checkout } from "@/lib/sales-api";
+import { listCustomers, type Customer } from "@/lib/customers-api";
 
 type CartLine = { item: StockItem; quantity: number };
 
@@ -22,6 +23,11 @@ const button =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-black hover:bg-accent-bright disabled:cursor-not-allowed disabled:opacity-50";
 
 export default function SalesPage() {
+  const { current } = useApp();
+  return <SalesWorkspace key={current.id} />;
+}
+
+function SalesWorkspace() {
   const { current } = useApp();
   const {
     stores,
@@ -43,6 +49,27 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerResults, setCustomerResults] = useState<Customer[]>([]);
+  const [customer, setCustomer] = useState<Customer | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void listCustomers(current.id, customerSearch)
+        .then(({ customers }) => {
+          if (!cancelled)
+            setCustomerResults(customers.filter((c) => c.status === "active"));
+        })
+        .catch(() => {
+          if (!cancelled) setCustomerResults([]);
+        });
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [current.id, customerSearch]);
 
   function changeStore(id: string) {
     if (busy) return;
@@ -51,6 +78,8 @@ export default function SalesPage() {
     setResults([]);
     setCash("");
     setSearch("");
+    setCustomer(null);
+    setCustomerSearch("");
     requestKey.current = null;
     setLoading(true);
     selectStore(id);
@@ -189,6 +218,7 @@ export default function SalesPage() {
       const { sale } = await checkout(current.id, {
         storeId,
         registerId: counter.registerId,
+        customerId: customer?.id,
         idempotencyKey: requestKey.current,
         items: cart.map(({ item, quantity }) => ({
           variantId: item.variantId,
@@ -388,6 +418,50 @@ export default function SalesPage() {
           onSubmit={(e) => void submit(e)}
           className="rounded-2xl border border-line bg-surface p-5 lg:sticky lg:top-20"
         >
+          <div className="mb-5 space-y-2 border-b border-line pb-5">
+            <label className="block text-sm font-medium">
+              Customer (optional)
+              <input
+                className={`${field} mt-2`}
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                placeholder="Search by name, phone or email"
+                disabled={busy}
+              />
+            </label>
+            <Select
+              ariaLabel="Customer for this sale"
+              className={field}
+              value={customer?.id ?? ""}
+              disabled={busy}
+              onValueChange={(id) => {
+                setCustomer(
+                  customerResults.find((c) => c.id === id) ??
+                    (customer?.id === id ? customer : null),
+                );
+                requestKey.current = null;
+              }}
+              options={[
+                { value: "", label: "Walk-in customer" },
+                ...[
+                  ...(customer &&
+                  !customerResults.some((c) => c.id === customer.id)
+                    ? [customer]
+                    : []),
+                  ...customerResults,
+                ].map((c) => ({
+                  value: c.id,
+                  label: `${c.name}${c.phone ? ` · ${c.phone}` : ""} · ${c.id.slice(-4)}`,
+                })),
+              ]}
+            />
+            <Link
+              href={workspacePath(current.slug, "/customers")}
+              className="text-xs text-accent-ink hover:underline"
+            >
+              Manage customers
+            </Link>
+          </div>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <ShoppingCart className="h-5 w-5 text-accent-ink" /> Cart
             <span className="ml-auto text-xs font-normal text-muted">

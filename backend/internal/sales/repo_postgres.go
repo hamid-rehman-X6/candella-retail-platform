@@ -42,9 +42,10 @@ func withSalesTx(ctx context.Context, db *pgxpool.Pool, tenantID string, fn func
 func requestHash(userID string, in CheckoutInput) string {
 	payload, _ := json.Marshal(struct {
 		UserID, StoreID, RegisterID string
-		Items           []CartItem
-		Cash            int64
-	}{userID, in.StoreID, in.RegisterID, in.Items, in.CashReceivedMinor})
+		CustomerID                  string `json:"CustomerID,omitempty"`
+		Items                       []CartItem
+		Cash                        int64
+	}{userID, in.StoreID, in.RegisterID, in.CustomerID, in.Items, in.CashReceivedMinor})
 	sum := sha256.Sum256(payload)
 	return hex.EncodeToString(sum[:])
 }
@@ -77,6 +78,19 @@ func (r *postgresRepository) Create(ctx context.Context, tenantID, userID, cashi
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
+		}
+		var customerID any
+		customerName := ""
+		if in.CustomerID != "" {
+			err = tx.QueryRow(ctx, `SELECT name FROM customers WHERE tenant_id=$1 AND id=$2 AND status='active' FOR SHARE`,
+				tenantID, in.CustomerID).Scan(&customerName)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrCustomerUnavailable
+			}
+			if err != nil {
+				return err
+			}
+			customerID = in.CustomerID
 		}
 		// Taken before any stock lock; closing the shift waits for this sale.
 		shiftID, err := register.LockOpenShift(ctx, tx, tenantID, storeID, in.RegisterID)
@@ -139,9 +153,10 @@ func (r *postgresRepository) Create(ctx context.Context, tenantID, userID, cashi
 		orderNumber := fmt.Sprintf("POS-%06d", sequence)
 		if _, err := tx.Exec(ctx, `INSERT INTO orders
 			(id, tenant_id, store_id, store_name_snapshot, order_number, idempotency_key, request_hash,
-			 currency_code, subtotal_minor, grand_total_minor, created_by, cashier_name_snapshot, register_session_id)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, orderID, tenantID, storeID, location.Name, orderNumber,
-			in.IdempotencyKey, hash, currency, total, total, userID, cashierName, shiftID); err != nil {
+			 currency_code, subtotal_minor, grand_total_minor, created_by, cashier_name_snapshot, register_session_id,
+			 customer_id, customer_name_snapshot)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`, orderID, tenantID, storeID, location.Name, orderNumber,
+			in.IdempotencyKey, hash, currency, total, total, userID, cashierName, shiftID, customerID, customerName); err != nil {
 			return err
 		}
 		for index, item := range items {
@@ -276,12 +291,14 @@ func loadSale(ctx context.Context, tx pgx.Tx, tenantID, orderID string) (*Sale, 
 	sale := &Sale{Items: []SaleItem{}}
 	err := tx.QueryRow(ctx, `SELECT o.id, o.store_id, o.store_name_snapshot, COALESCE(rs.register_name_snapshot, ''), COALESCE(o.register_session_id, ''),
 		o.order_number, o.created_by, o.cashier_name_snapshot, o.status, o.currency_code,
-		o.subtotal_minor, o.grand_total_minor, p.cash_received_minor, p.change_minor, o.created_at
+		o.subtotal_minor, o.grand_total_minor, p.cash_received_minor, p.change_minor, o.created_at,
+		COALESCE(o.customer_id,''), o.customer_name_snapshot
 		FROM orders o JOIN payments p ON p.tenant_id=o.tenant_id AND p.order_id=o.id
 		LEFT JOIN register_sessions rs ON rs.tenant_id=o.tenant_id AND rs.id=o.register_session_id
 		WHERE o.tenant_id=$1 AND o.id=$2`, tenantID, orderID).
 		Scan(&sale.ID, &sale.StoreID, &sale.StoreName, &sale.RegisterName, &sale.ShiftID, &sale.OrderNumber, &sale.CashierID, &sale.CashierName, &sale.Status, &sale.CurrencyCode, &sale.SubtotalMinor,
-			&sale.GrandTotalMinor, &sale.CashReceivedMinor, &sale.ChangeMinor, &sale.CreatedAt)
+			&sale.GrandTotalMinor, &sale.CashReceivedMinor, &sale.ChangeMinor, &sale.CreatedAt,
+			&sale.CustomerID, &sale.CustomerName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}

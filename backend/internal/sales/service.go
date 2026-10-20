@@ -19,13 +19,14 @@ type Error struct {
 func (e *Error) Error() string { return e.Message }
 
 var (
-	ErrInvalid       = &Error{http.StatusBadRequest, "invalid_checkout", "Check the cart and cash amount, then try again."}
-	ErrNotFound      = &Error{http.StatusNotFound, "sale_not_found", "This sale was not found in this workspace."}
-	ErrArchived      = &Error{http.StatusConflict, "product_unavailable", "A product in the cart is archived. Remove it and try again."}
-	ErrKeyReuse      = &Error{http.StatusConflict, "checkout_key_reused", "This checkout was already submitted with different details. Start a new sale."}
-	ErrCashShort     = &Error{http.StatusConflict, "cash_too_low", "Cash received is less than the current sale total. Check the updated prices and enter enough cash."}
-	ErrTotalLarge    = &Error{http.StatusBadRequest, "sale_too_large", "Sale total is too large. Reduce the cart size."}
-	ErrInvalidFilter = &Error{http.StatusBadRequest, "invalid_sales_filter", "Check the dates and amount range, then search again."}
+	ErrInvalid             = &Error{http.StatusBadRequest, "invalid_checkout", "Check the cart and cash amount, then try again."}
+	ErrNotFound            = &Error{http.StatusNotFound, "sale_not_found", "This sale was not found in this workspace."}
+	ErrArchived            = &Error{http.StatusConflict, "product_unavailable", "A product in the cart is archived. Remove it and try again."}
+	ErrKeyReuse            = &Error{http.StatusConflict, "checkout_key_reused", "This checkout was already submitted with different details. Start a new sale."}
+	ErrCashShort           = &Error{http.StatusConflict, "cash_too_low", "Cash received is less than the current sale total. Check the updated prices and enter enough cash."}
+	ErrTotalLarge          = &Error{http.StatusBadRequest, "sale_too_large", "Sale total is too large. Reduce the cart size."}
+	ErrInvalidFilter       = &Error{http.StatusBadRequest, "invalid_sales_filter", "Check the dates and amount range, then search again."}
+	ErrCustomerUnavailable = &Error{http.StatusConflict, "customer_unavailable", "Customer is archived or no longer in this workspace. Choose another customer or continue as walk-in."}
 )
 
 type Repository interface {
@@ -42,11 +43,15 @@ func NewService(repo Repository) *Service { return &Service{repo: repo} }
 
 func (s *Service) Checkout(ctx context.Context, tenantID, userID, cashierName string, in CheckoutInput) (*Sale, bool, error) {
 	in.IdempotencyKey = strings.TrimSpace(in.IdempotencyKey)
+	in.CustomerID = strings.TrimSpace(in.CustomerID)
 	cashierName = strings.TrimSpace(cashierName)
 	if len(in.IdempotencyKey) < 8 || len(in.IdempotencyKey) > 100 ||
 		cashierName == "" || len(cashierName) > 200 ||
 		len(in.Items) == 0 || len(in.Items) > 100 ||
 		in.CashReceivedMinor < 0 || in.CashReceivedMinor > maxSaleMinor {
+		return nil, false, ErrInvalid
+	}
+	if in.CustomerID != "" && (!strings.HasPrefix(in.CustomerID, "cus_") || len(in.CustomerID) != 16) {
 		return nil, false, ErrInvalid
 	}
 	seen := make(map[string]bool, len(in.Items))

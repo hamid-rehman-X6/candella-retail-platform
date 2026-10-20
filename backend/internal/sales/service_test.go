@@ -2,6 +2,9 @@ package sales
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,6 +12,27 @@ import (
 
 	"candella-ecosystem/backend/internal/tenant"
 )
+
+func TestWalkInRequestHashKeepsExistingIdempotencyFormat(t *testing.T) {
+	in := CheckoutInput{StoreID: "str_AAAAAAAAAAAA", RegisterID: "reg_AAAAAAAAAAAA", IdempotencyKey: "old-sale-001", CashReceivedMinor: 500,
+		Items: []CartItem{{VariantID: "var_AAAAAAAAAAAA", Quantity: 1}}}
+	legacy, err := json.Marshal(struct {
+		UserID, StoreID, RegisterID string
+		Items                       []CartItem
+		Cash                        int64
+	}{"usr_AAAAAAAAAAAA", in.StoreID, in.RegisterID, in.Items, in.CashReceivedMinor})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(legacy)
+	if got := requestHash("usr_AAAAAAAAAAAA", in); got != hex.EncodeToString(sum[:]) {
+		t.Fatalf("walk-in replay hash changed: %s", got)
+	}
+	in.CustomerID = "cus_AAAAAAAAAAAA"
+	if requestHash("usr_AAAAAAAAAAAA", in) == hex.EncodeToString(sum[:]) {
+		t.Fatal("customer change did not change idempotency hash")
+	}
+}
 
 type fakeRepository struct {
 	called   bool
@@ -88,6 +112,7 @@ func TestCheckoutValidationAndStableLockOrder(t *testing.T) {
 		{"duplicate variant", CheckoutInput{IdempotencyKey: "request-123", Items: []CartItem{valid.Items[0], valid.Items[0]}}},
 		{"zero quantity", CheckoutInput{IdempotencyKey: "request-123", Items: []CartItem{{VariantID: valid.Items[0].VariantID}}}},
 		{"negative cash", CheckoutInput{IdempotencyKey: "request-123", CashReceivedMinor: -1, Items: valid.Items}},
+		{"invalid customer", CheckoutInput{IdempotencyKey: "request-123", CashReceivedMinor: 500, CustomerID: "cus_other", Items: valid.Items}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
