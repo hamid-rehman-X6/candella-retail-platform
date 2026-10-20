@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+import { X } from "lucide-react";
 import { useApp } from "@/components/app/app-context";
 import { listStaff, type StaffMember } from "@/lib/staff-api";
 import {
@@ -29,6 +36,22 @@ export default function StoresPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [renameTarget, setRenameTarget] = useState<StoreLocation | null>(null);
+  const [renameName, setRenameName] = useState("");
+  const [renameError, setRenameError] = useState("");
+  const renameDialogRef = useRef<HTMLDialogElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!renameTarget) return;
+    const dialog = renameDialogRef.current;
+    if (!dialog) return;
+    dialog.showModal();
+    renameInputRef.current?.focus();
+    return () => {
+      if (dialog.open) dialog.close();
+    };
+  }, [renameTarget]);
 
   const refresh = useCallback(async () => {
     const [storeResult, staffResult] = await Promise.all([
@@ -100,13 +123,48 @@ export default function StoresPage() {
     setName("");
   }
 
-  async function rename(location: StoreLocation) {
-    const next = window.prompt("Store name", location.name)?.trim();
-    if (!next || next === location.name) return;
-    await run(
-      () => renameStore(current.id, location.id, next),
-      "Store renamed.",
-    );
+  function beginRename(location: StoreLocation) {
+    setRenameTarget(location);
+    setRenameName(location.name);
+    setRenameError("");
+  }
+
+  async function saveRename(event: FormEvent) {
+    event.preventDefault();
+    if (!renameTarget || busy) return;
+    const next = renameName.trim();
+    if (!next) {
+      setRenameError("Enter a store name.");
+      return;
+    }
+    if (next === renameTarget.name) {
+      setRenameTarget(null);
+      return;
+    }
+
+    setBusy(true);
+    setRenameError("");
+    try {
+      await renameStore(current.id, renameTarget.id, next);
+      setRenameTarget(null);
+      setError("");
+      setMessage("Store renamed.");
+      try {
+        await refresh();
+      } catch {
+        setError(
+          "Store renamed, but the list could not refresh. Reload this page to see it.",
+        );
+      }
+    } catch (cause) {
+      setRenameError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not rename the store. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function changeAccess(userId: string, allowed: boolean) {
@@ -192,7 +250,7 @@ export default function StoresPage() {
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => void rename(store)}
+                onClick={() => beginRename(store)}
                 className="rounded-xl border border-line px-3 py-2 text-sm"
               >
                 Rename
@@ -271,6 +329,93 @@ export default function StoresPage() {
             ))}
           </div>
         </section>
+      )}
+      {renameTarget && (
+        <dialog
+          ref={renameDialogRef}
+          aria-labelledby="rename-store-title"
+          onCancel={(event) => {
+            if (busy) event.preventDefault();
+          }}
+          onClose={() => setRenameTarget(null)}
+          onClick={(event) => {
+            if (event.target === renameDialogRef.current && !busy)
+              setRenameTarget(null);
+          }}
+          className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl border border-line bg-surface p-0 text-foreground shadow-2xl backdrop:bg-black/55"
+        >
+          <form onSubmit={(event) => void saveRename(event)} className="p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="rename-store-title" className="text-xl font-semibold">
+                  Rename store
+                </h2>
+                <p className="mt-1 text-sm text-muted">
+                  Give this location a name your team will recognize.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setRenameTarget(null)}
+                aria-label="Close rename dialog"
+                className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <label
+              htmlFor="rename-store-name"
+              className="mt-6 block text-sm font-medium"
+            >
+              Store name
+            </label>
+            <input
+              ref={renameInputRef}
+              id="rename-store-name"
+              required
+              maxLength={100}
+              value={renameName}
+              onChange={(event) => {
+                setRenameName(event.target.value);
+                if (renameError) setRenameError("");
+              }}
+              aria-invalid={!!renameError}
+              aria-describedby={renameError ? "rename-store-error" : undefined}
+              className={`${field} mt-2 focus-visible:ring-2 focus-visible:ring-accent/30`}
+            />
+            {renameError && (
+              <p
+                id="rename-store-error"
+                role="alert"
+                className="mt-2 text-sm text-danger-ink"
+              >
+                {renameError}
+              </p>
+            )}
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setRenameTarget(null)}
+                className="rounded-xl border border-line px-4 py-2.5 text-sm font-medium transition-colors hover:bg-surface-2 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  busy ||
+                  !renameName.trim() ||
+                  renameName.trim() === renameTarget.name
+                }
+                className={button}
+              >
+                {busy ? "Saving..." : "Save name"}
+              </button>
+            </div>
+          </form>
+        </dialog>
       )}
     </div>
   );
