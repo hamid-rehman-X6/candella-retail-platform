@@ -11,6 +11,7 @@ import { Archive, Pencil, Plus, Search, Truck } from "lucide-react";
 import { useApp } from "@/components/app/app-context";
 import { useStoreSelection } from "@/lib/use-store-selection";
 import { Select } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/ui/modal";
 import { listStock, type StockItem } from "@/lib/catalog-api";
 import { formatMoney, minorDigits, parseMoney } from "@/lib/money";
 import {
@@ -61,6 +62,7 @@ function SuppliersWorkspacePage() {
   const [supplierForm, setSupplierForm] =
     useState<SupplierInput>(emptySupplier);
   const [supplierBusy, setSupplierBusy] = useState(false);
+  const [archiving, setArchiving] = useState<Supplier | null>(null);
   const [variantSearch, setVariantSearch] = useState("");
   const [variants, setVariants] = useState<StockItem[]>([]);
   const [variantId, setVariantId] = useState("");
@@ -202,15 +204,12 @@ function SuppliersWorkspacePage() {
     }
   }
 
-  async function changeStatus(supplier: Supplier) {
+  async function changeStatus(supplier: Supplier, confirmed = false) {
     const next = supplier.status === "active" ? "archived" : "active";
-    if (
-      next === "archived" &&
-      !window.confirm(
-        `Archive ${supplier.name}? Existing product links will remain visible.`,
-      )
-    )
+    if (next === "archived" && !confirmed) {
+      setArchiving(supplier);
       return;
+    }
     setError("");
     try {
       const result = await updateSupplier(current.id, supplier.id, {
@@ -613,6 +612,19 @@ function SuppliersWorkspacePage() {
           )}
         </section>
       </div>
+      <ConfirmDialog
+        open={!!archiving}
+        title={archiving ? `Archive ${archiving.name}?` : ""}
+        message="It can no longer be linked to products. Existing product links stay visible, and you can restore it later."
+        confirmLabel="Archive supplier"
+        tone="danger"
+        onCancel={() => setArchiving(null)}
+        onConfirm={() => {
+          const supplier = archiving;
+          setArchiving(null);
+          if (supplier) void changeStatus(supplier, true);
+        }}
+      />
     </div>
   );
 }

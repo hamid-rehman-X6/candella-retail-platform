@@ -4,15 +4,17 @@ import Link from "next/link";
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type FormEvent,
 } from "react";
-import { ArrowDownToLine, ClipboardCheck, Search, X } from "lucide-react";
+import { ArrowDownToLine, ClipboardCheck, Search } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
 import { useStoreSelection } from "@/lib/use-store-selection";
 import { formatDateTime } from "@/lib/datetime";
 import { Select } from "@/components/ui/select";
+import { Modal, modalButton } from "@/components/ui/modal";
 import { ReorderPanel } from "@/components/inventory/reorder-panel";
 import {
   getCatalogSummary,
@@ -26,8 +28,6 @@ import {
 
 const field =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-foreground outline-none focus:border-accent";
-const button =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-black hover:bg-accent-bright disabled:opacity-50";
 
 export default function InventoryPage() {
   const { current } = useApp();
@@ -46,6 +46,7 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<StockItem | null>(null);
+  const movementFormId = useId();
   const [kind, setKind] = useState<"receive" | "count">("receive");
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
@@ -103,6 +104,11 @@ export default function InventoryPage() {
     setReorderItem(null);
     requestKey.current = null;
     selectStore(id);
+  }
+
+  function closeMovement() {
+    requestKey.current = null;
+    setSelected(null);
   }
 
   function open(item: StockItem, nextKind: "receive" | "count") {
@@ -422,105 +428,101 @@ export default function InventoryPage() {
           )}
         </div>
       </section>
-      {selected && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget && !busy) {
-              requestKey.current = null;
-              setSelected(null);
-            }
-          }}
+      <Modal
+        open={!!selected}
+        onClose={closeMovement}
+        busy={busy}
+        icon={
+          kind === "receive" ? (
+            <ArrowDownToLine size={20} />
+          ) : (
+            <ClipboardCheck size={20} />
+          )
+        }
+        title={kind === "receive" ? "Receive stock" : "Correct count"}
+        description={
+          selected
+            ? `${selected.productName} · ${selected.variantName} · ${selected.quantity} on hand now`
+            : undefined
+        }
+        footer={
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={closeMovement}
+              className={modalButton.secondary}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form={movementFormId}
+              disabled={busy}
+              className={modalButton.primary}
+            >
+              {busy
+                ? "Saving…"
+                : kind === "receive"
+                  ? "Receive stock"
+                  : "Save count"}
+            </button>
+          </>
+        }
+      >
+        <form
+          id={movementFormId}
+          onSubmit={(e) => void submit(e)}
+          className="space-y-4"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={
-              kind === "receive" ? "Receive stock" : "Correct stock count"
-            }
-            className="w-full max-w-md rounded-2xl border border-line bg-canvas-raised p-6 shadow-2xl"
-          >
-            <div className="flex justify-between">
-              <div className="flex items-center gap-2">
-                {kind === "receive" ? (
-                  <ArrowDownToLine className="text-accent-ink" />
-                ) : (
-                  <ClipboardCheck className="text-accent-ink" />
-                )}
-                <h2 className="text-xl font-semibold">
-                  {kind === "receive" ? "Receive stock" : "Correct count"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  requestKey.current = null;
-                  setSelected(null);
-                }}
-                disabled={busy}
-                aria-label="Close"
-                className="text-muted"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <p className="mt-3 text-sm text-muted">
-              {selected.productName} · {selected.variantName} · Currently{" "}
-              {selected.quantity} on hand
+          <label className="block text-sm font-medium">
+            {kind === "receive" ? "Quantity received" : "Counted quantity"}
+            <input
+              className={`${field} mt-1.5`}
+              type="number"
+              inputMode="numeric"
+              min={kind === "receive" ? 1 : 0}
+              step={1}
+              required
+              value={quantity}
+              onChange={(e) => {
+                requestKey.current = null;
+                setQuantity(e.target.value);
+              }}
+            />
+          </label>
+          <label className="block text-sm font-medium">
+            {kind === "receive" ? "Reference" : "Reason"}{" "}
+            <span className="font-normal text-muted">
+              {kind === "receive" ? "(optional)" : "(required)"}
+            </span>
+            <textarea
+              className={`${field} mt-1.5 resize-y`}
+              rows={2}
+              maxLength={500}
+              required={kind === "count"}
+              placeholder={
+                kind === "receive"
+                  ? "e.g. Supplier delivery 1024"
+                  : "e.g. Physical count after damage"
+              }
+              value={note}
+              onChange={(e) => {
+                requestKey.current = null;
+                setNote(e.target.value);
+              }}
+            />
+          </label>
+          {error && (
+            <p
+              role="alert"
+              className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-danger-ink"
+            >
+              {error}
             </p>
-            <form onSubmit={(e) => void submit(e)} className="mt-5 space-y-4">
-              <label className="block text-sm">
-                {kind === "receive" ? "Quantity received" : "Counted quantity"}
-                <input
-                  className={`${field} mt-1`}
-                  type="number"
-                  min={kind === "receive" ? 1 : 0}
-                  step={1}
-                  required
-                  value={quantity}
-                  onChange={(e) => {
-                    requestKey.current = null;
-                    setQuantity(e.target.value);
-                  }}
-                />
-              </label>
-              <label className="block text-sm">
-                Reason / reference{" "}
-                {kind === "receive" ? "(optional)" : "(required)"}
-                <textarea
-                  className={`${field} mt-1`}
-                  rows={2}
-                  maxLength={500}
-                  required={kind === "count"}
-                  placeholder={
-                    kind === "receive"
-                      ? "e.g. Supplier delivery 1024"
-                      : "e.g. Physical count after damage"
-                  }
-                  value={note}
-                  onChange={(e) => {
-                    requestKey.current = null;
-                    setNote(e.target.value);
-                  }}
-                />
-              </label>
-              {error && (
-                <p role="alert" className="text-sm text-danger-ink">
-                  {error}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={busy}
-                className={`${button} w-full`}
-              >
-                {busy ? "Saving…" : "Save movement"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+          )}
+        </form>
+      </Modal>
     </div>
   );
 }

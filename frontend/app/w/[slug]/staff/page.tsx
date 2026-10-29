@@ -1,6 +1,7 @@
 "use client";
 
 import { Select } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/ui/modal";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -33,6 +34,7 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [removing, setRemoving] = useState<StaffMember | null>(null);
 
   const load = useCallback(async () => {
     const result = await listStaff(current.id);
@@ -231,17 +233,7 @@ export default function StaffPage() {
                   <button
                     type="button"
                     disabled={busy || !canEdit || member.status !== "active"}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Remove ${member.fullName} from this workspace? Their access stops immediately.`,
-                        )
-                      )
-                        void action(
-                          () => removeStaff(current.id, member.userId),
-                          "Staff access removed.",
-                        );
-                    }}
+                    onClick={() => setRemoving(member)}
                     className="rounded-lg border border-line px-3 py-2 text-sm text-danger-ink disabled:opacity-40"
                   >
                     Remove
@@ -310,6 +302,23 @@ export default function StaffPage() {
           </div>
         )}
       </section>
+      <ConfirmDialog
+        open={!!removing}
+        title={removing ? `Remove ${removing.fullName}?` : ""}
+        message="Their access to this workspace stops immediately. Their past sales and actions stay in the records."
+        confirmLabel="Remove access"
+        tone="danger"
+        busy={busy}
+        onCancel={() => setRemoving(null)}
+        onConfirm={() => {
+          const member = removing;
+          if (!member) return;
+          void action(
+            () => removeStaff(current.id, member.userId),
+            "Staff access removed.",
+          ).finally(() => setRemoving(null));
+        }}
+      />
     </div>
   );
 }
