@@ -210,6 +210,10 @@ function ReportsWorkspace() {
             <span className="font-medium text-foreground">
               {money(report.totals.netTaxMinor)}
             </span>
+            ; discounts given:{" "}
+            <span className="font-medium text-foreground">
+              {money(report.totals.discountMinor)}
+            </span>
             .
           </p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

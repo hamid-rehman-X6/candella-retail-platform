@@ -22,6 +22,8 @@ type ReportDay struct {
 	TaxMinor         int64 `json:"taxMinor"`
 	RefundedTaxMinor int64 `json:"refundedTaxMinor"`
 	NetTaxMinor      int64 `json:"netTaxMinor"`
+	// Discounts given on the day's sales, item and order.
+	DiscountMinor int64 `json:"discountMinor"`
 }
 
 type TopProduct struct {

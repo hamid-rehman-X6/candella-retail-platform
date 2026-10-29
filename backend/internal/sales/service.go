@@ -59,11 +59,16 @@ func (s *Service) Checkout(ctx context.Context, tenantID, userID, cashierName st
 	for i := range in.Items {
 		item := &in.Items[i]
 		item.VariantID = strings.TrimSpace(item.VariantID)
+		item.PromotionID = strings.TrimSpace(item.PromotionID)
 		if !strings.HasPrefix(item.VariantID, "var_") || len(item.VariantID) != 16 ||
-			item.Quantity <= 0 || item.Quantity > 1_000_000 || seen[item.VariantID] {
+			item.Quantity <= 0 || item.Quantity > 1_000_000 || seen[item.VariantID] ||
+			(item.PromotionID != "" && !validPromotionID(item.PromotionID)) {
 			return nil, false, ErrInvalid
 		}
 		seen[item.VariantID] = true
+	}
+	if err := normalizeDiscount(in.Discount); err != nil {
+		return nil, false, err
 	}
 	// Every sale locks stock in the same order, avoiding cart-order deadlocks.
 	sort.Slice(in.Items, func(i, j int) bool { return in.Items[i].VariantID < in.Items[j].VariantID })
@@ -103,6 +108,30 @@ func (s *Service) Receipt(ctx context.Context, tenantID, orderID string) (*Sale,
 		return nil, ErrNotFound
 	}
 	return s.repo.Find(ctx, tenantID, orderID)
+}
+
+var ErrDiscountInput = &Error{http.StatusBadRequest, "invalid_discount",
+	"Choose a promotion, or enter a discount between 0.01% and 100% with a reason of at least 3 characters."}
+
+func validPromotionID(v string) bool { return strings.HasPrefix(v, "promo_") && len(v) == 18 }
+
+// normalizeDiscount accepts exactly one of a promotion or a manual
+// percentage; a manual discount must say why.
+func normalizeDiscount(d *DiscountInput) error {
+	if d == nil {
+		return nil
+	}
+	d.PromotionID = strings.TrimSpace(d.PromotionID)
+	d.Reason = strings.TrimSpace(d.Reason)
+	switch {
+	case d.PromotionID != "" && d.PercentBps == 0 && validPromotionID(d.PromotionID):
+		d.Reason = ""
+		return nil
+	case d.PromotionID == "" && d.PercentBps >= 1 && d.PercentBps <= 10000 &&
+		len(d.Reason) >= 3 && len(d.Reason) <= 300:
+		return nil
+	}
+	return ErrDiscountInput
 }
 
 func addLine(total, price, quantity int64) (int64, int64, error) {

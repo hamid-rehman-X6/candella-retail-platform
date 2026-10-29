@@ -126,6 +126,12 @@ export default function ReceiptPage() {
                     {item.sku} · {item.quantity} ×{" "}
                     {formatMoney(item.unitPriceMinor, sale.currencyCode)}
                   </p>
+                  {item.discountMinor > 0 && (
+                    <p className="mt-1 text-xs text-success-ink print:text-black">
+                      {item.promotionName ?? "Discount"}: −
+                      {formatMoney(item.discountMinor, sale.currencyCode)}
+                    </p>
+                  )}
                   {item.taxName && item.taxRateBps !== null && (
                     <p className="mt-1 text-xs text-muted print:text-gray-600">
                       {item.taxName} ({formatRate(item.taxRateBps)}
@@ -150,11 +156,25 @@ export default function ReceiptPage() {
               <dt>Subtotal</dt>
               <dd>{formatMoney(sale.subtotalMinor, sale.currencyCode)}</dd>
             </div>
+            {sale.discountMinor > 0 && (
+              <div className="flex justify-between gap-4">
+                <dt>
+                  {sale.discountName ?? "Item discounts"}
+                  {sale.discountReason && (
+                    <span className="block text-xs text-muted print:text-gray-600">
+                      {sale.discountReason}
+                    </span>
+                  )}
+                </dt>
+                <dd>−{formatMoney(sale.discountMinor, sale.currencyCode)}</dd>
+              </div>
+            )}
             {sale.taxMinor > 0 && (
               <div className="flex justify-between">
                 <dt>
                   Tax
-                  {sale.grandTotalMinor === sale.subtotalMinor &&
+                  {sale.grandTotalMinor ===
+                    sale.subtotalMinor - sale.discountMinor &&
                     " (included in prices)"}
                 </dt>
                 <dd>{formatMoney(sale.taxMinor, sale.currencyCode)}</dd>

@@ -86,18 +86,18 @@ func reportCSV(report *DailyReport) ([]byte, error) {
 		return nil, err
 	}
 	if err := write("Date", "Sales count", "Gross cash minor", "Refund count", "Cash refunds minor", "Net sales minor",
-		"Tax charged minor", "Tax refunded minor", "Net tax minor"); err != nil {
+		"Tax charged minor", "Tax refunded minor", "Net tax minor", "Discounts minor"); err != nil {
 		return nil, err
 	}
 	for _, day := range report.Days {
 		if err := write(day.Date, n(day.SalesCount), n(day.GrossCashMinor), n(day.RefundsCount), n(day.RefundsMinor), n(day.NetSalesMinor),
-			n(day.TaxMinor), n(day.RefundedTaxMinor), n(day.NetTaxMinor)); err != nil {
+			n(day.TaxMinor), n(day.RefundedTaxMinor), n(day.NetTaxMinor), n(day.DiscountMinor)); err != nil {
 			return nil, err
 		}
 	}
 	t := report.Totals
 	if err := write("TOTAL", n(t.SalesCount), n(t.GrossCashMinor), n(t.RefundsCount), n(t.RefundsMinor), n(t.NetSalesMinor),
-		n(t.TaxMinor), n(t.RefundedTaxMinor), n(t.NetTaxMinor)); err != nil {
+		n(t.TaxMinor), n(t.RefundedTaxMinor), n(t.NetTaxMinor), n(t.DiscountMinor)); err != nil {
 		return nil, err
 	}
 	if err := write(); err != nil {

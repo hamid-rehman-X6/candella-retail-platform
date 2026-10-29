@@ -15,6 +15,9 @@ export type SaleItem = {
   taxRateBps: number | null;
   taxInclusive: boolean | null;
   taxMinor: number;
+  /** Item promotion plus this line's share of a bill discount. */
+  discountMinor: number;
+  promotionName: string | null;
 };
 
 export type ReturnSummary = {
@@ -42,6 +45,12 @@ export type Sale = {
   currencyCode: string;
   items: SaleItem[];
   subtotalMinor: number;
+  discountMinor: number;
+  /** The bill discount as given; null when the sale had none. */
+  discountKind: "promotion" | "manual" | null;
+  discountName: string | null;
+  discountPercentBps: number | null;
+  discountReason: string | null;
   taxMinor: number;
   grandTotalMinor: number;
   cashReceivedMinor: number;
@@ -92,8 +101,10 @@ export type CheckoutInput = {
   registerId: string;
   customerId?: string;
   idempotencyKey: string;
-  items: { variantId: string; quantity: number }[];
+  items: { variantId: string; quantity: number; promotionId?: string }[];
   cashReceivedMinor: number;
+  /** A bill discount: an approved promotion, or a manual % with a reason. */
+  discount?: { promotionId?: string; percentBps?: number; reason?: string };
 };
 
 export const checkout = (tenantId: string, input: CheckoutInput) =>

@@ -30,7 +30,7 @@ var tenantTables = []string{
 	"suppliers", "supplier_variants", "catalog_import_batches", "registers", "register_sessions",
 	"returns", "return_items", "customers", "purchase_orders", "purchase_order_items",
 	"goods_receipts", "goods_receipt_items",
-	"reorder_settings", "tax_rates",
+	"reorder_settings", "tax_rates", "promotions",
 }
 
 // controlPlaneTables carry a tenant_id but are read before a tenant is in scope:
@@ -147,6 +147,8 @@ func seedTenant(t *testing.T, env *isolationEnv) seededTenant {
 		{`INSERT INTO store_access (tenant_id, store_id, user_id) VALUES ($1, $2, $3)`, []any{s.tenantID, s.storeID, s.userID}},
 		{`INSERT INTO tax_rates (id, tenant_id, name, rate_bps, inclusive) VALUES ($1, $2, 'GST', 1800, true)`,
 			[]any{s.taxRateID, s.tenantID}},
+		{`INSERT INTO promotions (id, tenant_id, name, kind, percent_bps, applies_to) VALUES ($1, $2, 'Eid', 'percent', 1000, 'order')`,
+			[]any{id.New(id.Promotion), s.tenantID}},
 		{`INSERT INTO products (id, tenant_id, name, tax_rate_id) VALUES ($1, $2, 'Original', $3)`, []any{s.productID, s.tenantID, s.taxRateID}},
 		{`INSERT INTO product_variants (id, tenant_id, product_id, sku, price_minor)
 		  VALUES ($1, $2, $3, $1, 15000)`, []any{s.variantID, s.tenantID, s.productID}},
