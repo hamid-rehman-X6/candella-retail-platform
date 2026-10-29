@@ -46,6 +46,19 @@ func TestAuthAccessBoundariesPostgres(t *testing.T) {
 	env := newAuthEnv(t)
 	password := "Correct-Horse-9!"
 
+	t.Run("a newly created user is active straight away", func(t *testing.T) {
+		// Google sign-up creates the user and starts its session in one call; a
+		// user missing its stored status was refused as disabled on first sign-in.
+		now := time.Now()
+		u := &auth.User{Email: "new-google-" + env.run + "@example.test", FullName: "New User", EmailVerifiedAt: &now}
+		if err := auth.NewPostgresRepository(env.app).CreateUser(env.ctx, u); err != nil {
+			t.Fatal(err)
+		}
+		if !u.IsActive() || u.CreatedAt.IsZero() || u.MFAEnabled {
+			t.Fatalf("created user status=%q createdAt=%v mfa=%v, want active, set, false", u.Status, u.CreatedAt, u.MFAEnabled)
+		}
+	})
+
 	t.Run("verified sign-up holds a working session", func(t *testing.T) {
 		b := env.browser()
 		env.signUp(b, password)
@@ -209,6 +222,7 @@ type authEnv struct {
 	t      *testing.T
 	ctx    context.Context
 	pool   *pgxpool.Pool
+	app    *pgxpool.Pool
 	server *httptest.Server
 	mail   *captureMailer
 	run    string
@@ -263,7 +277,7 @@ func newAuthEnv(t *testing.T) *authEnv {
 	server := httptest.NewServer(router)
 	t.Cleanup(server.Close)
 
-	return &authEnv{t: t, ctx: ctx, pool: pool, server: server, mail: mail,
+	return &authEnv{t: t, ctx: ctx, pool: pool, app: appPool, server: server, mail: mail,
 		run: fmt.Sprintf("%d", time.Now().UnixNano())}
 }
 
