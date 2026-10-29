@@ -203,7 +203,7 @@ export function Select({
             aria-label={ariaLabel}
             style={position}
             className={cn(
-              "z-[100] overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-line-strong bg-canvas-raised p-1.5 shadow-xl shadow-black/15",
+              "scroll-thin z-[100] overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-line-strong bg-canvas-raised p-1.5 shadow-xl shadow-black/15",
               tone === "rose" && "border-line-strong bg-canvas-raised",
             )}
           >

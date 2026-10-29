@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { AlertTriangle, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { AlertTriangle } from "lucide-react";
 import { workspacePath } from "@/components/app/app-context";
 import { Select } from "@/components/ui/select";
+import { Modal, modalButton } from "@/components/ui/modal";
 import {
   listLowStock,
   saveReorder,
@@ -42,6 +43,7 @@ export function ReorderPanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<StockItem | null>(null);
+  const alertFormId = useId();
   const [threshold, setThreshold] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [supplierSearch, setSupplierSearch] = useState("");
@@ -273,103 +275,108 @@ export function ReorderPanel({
           </button>
         )}
       </section>
-      {editing && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) close();
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Stock alert settings"
-            className="w-full max-w-md rounded-2xl border border-line bg-canvas-raised p-6 shadow-2xl"
+      <Modal
+        open={!!editing}
+        onClose={close}
+        busy={busy}
+        title="Stock alert"
+        description={
+          editing
+            ? `${editing.productName} · ${editing.variantName}`
+            : undefined
+        }
+        footer={
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={close}
+              className={modalButton.secondary}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form={alertFormId}
+              disabled={busy}
+              className={modalButton.primary}
+            >
+              {busy ? "Saving…" : "Save alert"}
+            </button>
+          </>
+        }
+      >
+        {editing && (
+          <form
+            id={alertFormId}
+            onSubmit={(e) => void save(e)}
+            className="space-y-4"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold">Stock alert</h2>
-                <p className="mt-1 text-sm text-muted">
-                  {editing.productName} · {editing.variantName}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={close}
-                disabled={busy}
-                aria-label="Close"
-                className="cursor-pointer text-muted"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={(e) => void save(e)} className="mt-5 space-y-4">
-              <label className="block text-sm">
-                Alert when stock is at or below
-                <input
-                  className={`${field} mt-1`}
-                  type="number"
-                  min={0}
-                  max={1000000000}
-                  step={1}
-                  value={threshold}
-                  onChange={(e) => setThreshold(e.target.value)}
-                  placeholder="Leave blank to turn off"
-                />
-              </label>
-              <div>
-                <label htmlFor="supplier-search" className="text-sm">
-                  Preferred supplier (optional)
-                </label>
-                <input
-                  id="supplier-search"
-                  className={`${field} mt-1`}
-                  value={supplierSearch}
-                  onChange={(e) => setSupplierSearch(e.target.value)}
-                  placeholder="Search suppliers"
-                />
-                <Select
-                  ariaLabel="Preferred supplier"
-                  className={`${field} mt-2`}
-                  value={supplierId}
-                  onValueChange={setSupplierId}
-                  options={[
-                    { value: "", label: "Use linked supplier when available" },
-                    ...(!suppliers.some((s) => s.id === supplierId) &&
-                    supplierId &&
-                    editing.preferredSupplierName
-                      ? [
-                          {
-                            value: supplierId,
-                            label: editing.preferredSupplierName,
-                          },
-                        ]
-                      : []),
-                    ...suppliers.map((s) => ({ value: s.id, label: s.name })),
-                  ]}
-                />
-              </div>
-              <p className="text-xs text-muted">
-                Stock changes update this alert automatically. Leaving the
-                threshold blank turns it off.
+            <label className="block text-sm font-medium">
+              Alert when stock is at or below
+              <input
+                className={`${field} mt-1.5`}
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={1000000000}
+                step={1}
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                placeholder="e.g. 10"
+              />
+              <span className="mt-1 block text-xs font-normal text-muted">
+                Leave blank to turn the alert off. {editing.quantity} on hand
+                now.
+              </span>
+            </label>
+            <div>
+              <p className="text-sm font-medium">
+                Preferred supplier{" "}
+                <span className="font-normal text-muted">(optional)</span>
               </p>
-              {error && (
-                <p role="alert" className="text-sm text-danger-ink">
-                  {error}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={busy}
-                className="w-full cursor-pointer rounded-xl bg-accent px-4 py-2.5 font-semibold text-black disabled:opacity-50"
+              <input
+                aria-label="Search suppliers"
+                className={`${field} mt-1.5`}
+                value={supplierSearch}
+                onChange={(e) => setSupplierSearch(e.target.value)}
+                placeholder="Type to narrow the list below"
+              />
+              <Select
+                ariaLabel="Preferred supplier"
+                className={`${field} mt-2`}
+                value={supplierId}
+                onValueChange={setSupplierId}
+                options={[
+                  { value: "", label: "Use linked supplier when available" },
+                  ...(!suppliers.some((s) => s.id === supplierId) &&
+                  supplierId &&
+                  editing.preferredSupplierName
+                    ? [
+                        {
+                          value: supplierId,
+                          label: editing.preferredSupplierName,
+                        },
+                      ]
+                    : []),
+                  ...suppliers.map((s) => ({ value: s.id, label: s.name })),
+                ]}
+              />
+              <p className="mt-1 text-xs text-muted">
+                Reorder suggestions use this supplier first.
+              </p>
+            </div>
+            {error && (
+              <p
+                role="alert"
+                className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-danger-ink"
               >
-                {busy ? "Saving…" : "Save alert"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+                {error}
+              </p>
+            )}
+          </form>
+        )}
+      </Modal>
     </>
   );
 }

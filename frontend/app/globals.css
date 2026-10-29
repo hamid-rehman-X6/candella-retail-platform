@@ -207,21 +207,47 @@ a[aria-disabled="true"] {
   color: var(--color-foreground);
 }
 
-/* Custom scrollbar (WebKit) */
+/* Scrollbars: thin, with a transparent track, so a scrolling dropdown or
+ * dialog body never shows a bar of page colour sticking out of its card. */
+:root {
+  --scrollbar-thumb: color-mix(
+    in oklab,
+    var(--color-foreground) 22%,
+    transparent
+  );
+  --scrollbar-thumb-hover: color-mix(
+    in oklab,
+    var(--color-foreground) 38%,
+    transparent
+  );
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
-::-webkit-scrollbar-track {
-  background: var(--color-canvas);
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--color-accent) 35%, #333);
+  background-color: var(--scrollbar-thumb);
+  background-clip: padding-box;
+  border: 3px solid transparent;
   border-radius: 999px;
-  border: 2px solid var(--color-canvas);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklab, var(--color-accent) 60%, #333);
+  background-color: var(--scrollbar-thumb-hover);
+}
+/* Inside cards and menus: thinner still, inset from the rounded edge. */
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  margin-block: 6px;
 }
 
 /* ------------------------------------------------------------------ *

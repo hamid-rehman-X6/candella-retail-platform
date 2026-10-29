@@ -4,14 +4,16 @@ import Link from "next/link";
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type FormEvent,
 } from "react";
-import { FileUp, PackagePlus, Plus, Search, X } from "lucide-react";
+import { FileUp, PackagePlus, Plus, Search } from "lucide-react";
 import { useApp, workspacePath } from "@/components/app/app-context";
 import { useStoreSelection } from "@/lib/use-store-selection";
 import { Select } from "@/components/ui/select";
+import { ConfirmDialog, Modal, modalButton } from "@/components/ui/modal";
 import { toast } from "@/lib/toast";
 import {
   addVariant,
@@ -34,7 +36,6 @@ export default function ProductsPage() {
   const {
     stores,
     storeId,
-    selectedStore,
     select: selectStore,
     error: storeError,
   } = useStoreSelection(current.id);
@@ -58,6 +59,7 @@ export default function ProductsPage() {
   const [barcode, setBarcode] = useState("");
   const [price, setPrice] = useState("");
   const [initialQuantity, setInitialQuantity] = useState("0");
+  const formId = useId();
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const loadID = useRef(0);
@@ -172,7 +174,7 @@ export default function ProductsPage() {
           storeId,
           variant: {
             name: variantName || "Standard",
-            sku: "",
+            sku: sku.trim(),
             barcode,
             priceMinor,
           },
@@ -180,7 +182,7 @@ export default function ProductsPage() {
       } else if (form === "variant" && selected) {
         await addVariant(current.id, selected.id, {
           name: variantName || "Standard",
-          sku: "",
+          sku: sku.trim(),
           barcode,
           priceMinor,
         });
@@ -436,233 +438,220 @@ export default function ProductsPage() {
           Load more
         </button>
       )}
-      {statusTarget && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !statusBusy)
-              setStatusTarget(null);
-          }}
-        >
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="product-status-title"
-            aria-describedby="product-status-description"
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && !statusBusy) setStatusTarget(null);
-            }}
-            className="w-full max-w-md rounded-2xl border border-line bg-canvas-raised p-6 shadow-2xl"
-          >
-            <h2 id="product-status-title" className="text-xl font-semibold">
-              {statusTarget.status === "active" ? "Archive" : "Restore"}{" "}
-              {statusTarget.name}?
-            </h2>
-            <p
-              id="product-status-description"
-              className="mt-2 text-sm text-muted"
+      <ConfirmDialog
+        open={!!statusTarget}
+        title={
+          statusTarget
+            ? `${statusTarget.status === "active" ? "Archive" : "Restore"} ${statusTarget.name}?`
+            : ""
+        }
+        message={
+          statusTarget?.status === "active"
+            ? "This product will no longer be available for new sales or stock receipts. Its history stays available."
+            : "This product will be available for new sales and stock receipts again."
+        }
+        confirmLabel={
+          statusTarget?.status === "active"
+            ? "Archive product"
+            : "Restore product"
+        }
+        tone={statusTarget?.status === "active" ? "danger" : "primary"}
+        busy={statusBusy}
+        onCancel={() => setStatusTarget(null)}
+        onConfirm={() => void confirmStatusChange()}
+      />
+      <Modal
+        open={!!form}
+        onClose={() => setForm(null)}
+        busy={busy}
+        size="lg"
+        title={
+          form === "create"
+            ? "Add product"
+            : form === "variant"
+              ? "Add variant"
+              : form === "variant_edit"
+                ? "Edit variant"
+                : "Edit product"
+        }
+        description={
+          form === "create"
+            ? "Only the name and selling price are required."
+            : form === "variant"
+              ? `A new size, colour or pack of ${selected?.name ?? "this product"}.`
+              : form === "variant_edit"
+                ? `${selected?.name ?? ""} · ${selectedVariant?.name ?? ""}`
+                : selected?.name
+        }
+        footer={
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setForm(null)}
+              className={modalButton.secondary}
             >
-              {statusTarget.status === "active"
-                ? "This product will no longer be available for new sales or stock receipts. Its history stays available."
-                : "This product will be available for new sales and stock receipts again."}
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                autoFocus
-                disabled={statusBusy}
-                onClick={() => setStatusTarget(null)}
-                className="rounded-xl border border-line px-4 py-2.5 text-sm hover:border-line-strong disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={statusBusy}
-                onClick={() => void confirmStatusChange()}
-                className={button}
-              >
-                {statusBusy
-                  ? "Saving…"
-                  : statusTarget.status === "active"
-                    ? "Archive product"
-                    : "Restore product"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {form && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setForm(null);
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={
-              form === "create"
-                ? "Add product"
-                : form === "variant"
-                  ? "Add variant"
-                  : form === "variant_edit"
-                    ? "Edit variant"
-                    : "Edit product"
-            }
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-canvas-raised p-6 shadow-2xl"
-          >
-            <div className="flex items-start justify-between">
-              <h2 className="text-xl font-semibold">
-                {form === "create"
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form={formId}
+              disabled={busy}
+              className={modalButton.primary}
+            >
+              {busy
+                ? "Saving…"
+                : form === "create"
                   ? "Add product"
                   : form === "variant"
-                    ? `New variant for ${selected?.name}`
-                    : form === "variant_edit"
-                      ? `Edit ${selectedVariant?.name}`
-                      : "Edit product"}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setForm(null)}
-                aria-label="Close"
-                className="p-1 text-muted"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={(e) => void submit(e)} className="mt-6 space-y-4">
-              {(form === "create" || form === "edit") && (
-                <>
-                  <label className="block text-sm">
-                    Product name
-                    <input
-                      className={`${field} mt-1`}
-                      required
-                      maxLength={160}
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    Description <span className="text-muted">(optional)</span>
-                    <textarea
-                      className={`${field} mt-1`}
-                      rows={2}
-                      maxLength={2000}
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                    />
-                  </label>
-                </>
-              )}
-              {form !== "edit" && (
-                <>
-                  <label className="block text-sm">
-                    Variant name{" "}
-                    <span className="text-muted">
-                      (e.g. Blue / Large; optional)
-                    </span>
-                    <input
-                      className={`${field} mt-1`}
-                      maxLength={100}
-                      value={variantName}
-                      onChange={(e) => setVariantName(e.target.value)}
-                    />
-                  </label>
-                  {form === "variant_edit" ? (
-                    <label className="block text-sm">
-                      SKU
-                      <input
-                        className={`${field} mt-1`}
-                        required
-                        maxLength={80}
-                        value={sku}
-                        onChange={(e) => setSku(e.target.value)}
-                      />
-                    </label>
-                  ) : (
-                    <p className="rounded-xl border border-line bg-surface p-3 text-sm text-muted">
-                      SKU will be generated automatically. You can edit it
-                      later.
-                    </p>
+                    ? "Add variant"
+                    : "Save changes"}
+            </button>
+          </>
+        }
+      >
+        <form
+          id={formId}
+          onSubmit={(e) => void submit(e)}
+          className="space-y-4"
+        >
+          {(form === "create" || form === "edit") && (
+            <>
+              <label className="block text-sm font-medium">
+                Product name
+                <input
+                  className={`${field} mt-1.5`}
+                  required
+                  maxLength={160}
+                  placeholder="e.g. Cotton Shirt"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                Description{" "}
+                <span className="font-normal text-muted">(optional)</span>
+                <textarea
+                  className={`${field} mt-1.5 resize-y`}
+                  rows={2}
+                  maxLength={2000}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </label>
+            </>
+          )}
+          {form !== "edit" && (
+            <>
+              <label className="block text-sm font-medium">
+                Variant{" "}
+                <span className="font-normal text-muted">(optional)</span>
+                <input
+                  className={`${field} mt-1.5`}
+                  maxLength={100}
+                  placeholder="e.g. Large, Blue, 500ml"
+                  value={variantName}
+                  onChange={(e) => setVariantName(e.target.value)}
+                />
+                <span className="mt-1 block text-xs font-normal text-muted">
+                  Leave blank if the product comes in one kind only.
+                </span>
+              </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium">
+                  SKU{" "}
+                  {form !== "variant_edit" && (
+                    <span className="font-normal text-muted">(optional)</span>
                   )}
-                  <label className="block text-sm">
-                    Barcode <span className="text-muted">(optional)</span>
+                  <input
+                    className={`${field} mt-1.5 font-mono uppercase placeholder:font-sans placeholder:normal-case`}
+                    required={form === "variant_edit"}
+                    maxLength={80}
+                    placeholder={
+                      form === "variant_edit" ? "" : "Created automatically"
+                    }
+                    value={sku}
+                    onChange={(e) => setSku(e.target.value)}
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  Barcode{" "}
+                  <span className="font-normal text-muted">(optional)</span>
+                  <input
+                    className={`${field} mt-1.5 font-mono`}
+                    maxLength={80}
+                    placeholder="Scan or type"
+                    value={barcode}
+                    onChange={(e) => setBarcode(e.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium">
+                  Selling price ({current.currencyCode})
+                  <input
+                    className={`${field} mt-1.5`}
+                    inputMode="decimal"
+                    required
+                    placeholder="0"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                  />
+                </label>
+                {form === "create" && (
+                  <label className="block text-sm font-medium">
+                    Opening stock{" "}
+                    <span className="font-normal text-muted">(optional)</span>
                     <input
-                      className={`${field} mt-1`}
-                      maxLength={80}
-                      value={barcode}
-                      onChange={(e) => setBarcode(e.target.value)}
+                      className={`${field} mt-1.5`}
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={1_000_000_000}
+                      step={1}
+                      value={initialQuantity}
+                      onChange={(e) => setInitialQuantity(e.target.value)}
                     />
                   </label>
-                  <label className="block text-sm">
-                    Selling price ({current.currencyCode})
-                    <input
-                      className={`${field} mt-1`}
-                      inputMode="decimal"
-                      required
-                      placeholder="0.00"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                    />
-                  </label>
-                  {form === "create" && (
-                    <label className="block text-sm">
-                      Opening stock at {selectedStore?.name ?? "selected store"}{" "}
-                      <span className="text-muted">(optional)</span>
-                      <input
-                        className={`${field} mt-1`}
-                        type="number"
-                        min={0}
-                        max={1_000_000_000}
-                        step={1}
-                        value={initialQuantity}
-                        onChange={(e) => setInitialQuantity(e.target.value)}
-                      />
-                      <span className="mt-1 block text-xs text-muted">
-                        You can receive more stock later from Inventory.
-                      </span>
-                      <Select
-                        ariaLabel="Opening stock store"
-                        className={`${field} mt-2`}
-                        value={storeId}
-                        onValueChange={changeStore}
-                        options={[
-                          ...(!storeId
-                            ? [{ value: "", label: "Select a store" }]
-                            : []),
-                          ...stores
-                            .filter((location) => location.accessible)
-                            .map((location) => ({
-                              value: location.id,
-                              label: location.name,
-                            })),
-                        ]}
-                      />
-                    </label>
-                  )}
-                </>
+                )}
+              </div>
+              {form === "create" && (
+                <div>
+                  <p className="text-sm font-medium">Opening stock goes to</p>
+                  <Select
+                    ariaLabel="Store receiving the opening stock"
+                    className={`${field} mt-1.5`}
+                    value={storeId}
+                    onValueChange={changeStore}
+                    options={[
+                      ...(!storeId
+                        ? [{ value: "", label: "Select a store" }]
+                        : []),
+                      ...stores
+                        .filter((location) => location.accessible)
+                        .map((location) => ({
+                          value: location.id,
+                          label: location.name,
+                        })),
+                    ]}
+                  />
+                  <p className="mt-1 text-xs text-muted">
+                    You can receive more stock later from Inventory.
+                  </p>
+                </div>
               )}
-              {error && (
-                <p role="alert" className="text-sm text-danger-ink">
-                  {error}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={busy}
-                className={`${button} w-full`}
-              >
-                {busy ? "Saving…" : "Save"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+            </>
+          )}
+          {error && (
+            <p
+              role="alert"
+              className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-danger-ink"
+            >
+              {error}
+            </p>
+          )}
+        </form>
+      </Modal>
     </div>
   );
 }
