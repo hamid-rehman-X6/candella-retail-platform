@@ -33,13 +33,16 @@ func mapErr(err error) error {
 
 // ----- Users --------------------------------------------------------------
 
+// CreateUser inserts u and reads back the columns the database fills in, so
+// callers that act on the new user straight away (Google sign-up starts a
+// session at once) see it as stored: active, with its creation time.
 func (r *repoPostgres) CreateUser(ctx context.Context, u *User) error {
 	u.ID = id.New(id.User)
-	_, err := r.db.Exec(ctx, `
+	return r.db.QueryRow(ctx, `
 		INSERT INTO users (id, email, password_hash, full_name, email_verified_at)
-		VALUES ($1, $2, $3, $4, $5)`,
-		u.ID, u.Email, u.PasswordHash, u.FullName, u.EmailVerifiedAt)
-	return err
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING status, mfa_enabled, created_at`,
+		u.ID, u.Email, u.PasswordHash, u.FullName, u.EmailVerifiedAt).Scan(&u.Status, &u.MFAEnabled, &u.CreatedAt)
 }
 
 const userColumns = `id, email, password_hash, full_name, status, email_verified_at, mfa_enabled, last_login_at, created_at`
