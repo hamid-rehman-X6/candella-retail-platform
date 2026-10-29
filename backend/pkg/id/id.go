@@ -46,6 +46,7 @@ const (
 	Return           Prefix = "ret"
 	ReturnItem       Prefix = "ritem"
 	TaxRate          Prefix = "tax"
+	Promotion        Prefix = "promo"
 )
 
 // New returns a new prefixed ID, e.g. New(id.User) -> "usr_4f8K2mQpXrTz".

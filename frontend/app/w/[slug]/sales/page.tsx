@@ -13,7 +13,19 @@ import { ApiError } from "@/lib/api";
 import { listStock, type StockItem } from "@/lib/catalog-api";
 import { formatMoney, minorDigits, parseMoney } from "@/lib/money";
 import { checkout } from "@/lib/sales-api";
-import { lineTax } from "@/lib/tax";
+import { price, type PriceResult } from "@/lib/pricing";
+import {
+  getDiscountSettings,
+  listPromotions,
+  usableOn,
+  type Promotion,
+} from "@/lib/promotions-api";
+import {
+  DiscountPanel,
+  parsePercent,
+  promotionLabel,
+  type OrderDiscount,
+} from "@/components/app/discount-panel";
 import { listCustomers, type Customer } from "@/lib/customers-api";
 
 type CartLine = { item: StockItem; quantity: number };
@@ -53,6 +65,51 @@ function SalesWorkspace() {
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerResults, setCustomerResults] = useState<Customer[]>([]);
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [cashierLimitBps, setCashierLimitBps] = useState(0);
+  const [linePromotions, setLinePromotions] = useState<Record<string, string>>(
+    {},
+  );
+  const [orderDiscount, setOrderDiscount] = useState<OrderDiscount>({
+    mode: "none",
+  });
+  const manager = current.role === "owner" || current.role === "admin";
+
+  useEffect(() => {
+    let cancelled = false;
+    // Promotions are optional; without them the till simply sells at price.
+    void Promise.all([
+      listPromotions(current.id),
+      getDiscountSettings(current.id),
+    ])
+      .then(([promos, settings]) => {
+        if (cancelled) return;
+        setPromotions(promos.promotions);
+        setCashierLimitBps(settings.settings.cashierLimitBps);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [current.id]);
+
+  // Promotions run by business day in the workspace's timezone.
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: current.timezone,
+  }).format(new Date());
+  const usable = promotions.filter((p) => usableOn(p, today));
+  const orderPromotions = usable.filter((p) => p.appliesTo === "order");
+  const itemPromotions = usable.filter((p) => p.appliesTo === "item");
+
+  function changeDiscount(next: OrderDiscount) {
+    setOrderDiscount(next);
+    requestKey.current = null;
+  }
+
+  function changeLinePromotion(variantId: string, promotionId: string) {
+    setLinePromotions((old) => ({ ...old, [variantId]: promotionId }));
+    requestKey.current = null;
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -81,6 +138,8 @@ function SalesWorkspace() {
     setSearch("");
     setCustomer(null);
     setCustomerSearch("");
+    setLinePromotions({});
+    setOrderDiscount({ mode: "none" });
     requestKey.current = null;
     setLoading(true);
     selectStore(id);
@@ -193,32 +252,76 @@ function SalesWorkspace() {
     setError("");
   }
 
-  // The same per-line tax the server charges; it re-checks on confirm.
-  const subtotal = cart.reduce(
+  // The same discounts and tax the server applies; it re-checks on confirm.
+  const promotionById = new Map(usable.map((p) => [p.id, p]));
+  const asDiscount = (p: Promotion) =>
+    p.kind === "amount"
+      ? { amountMinor: p.amountMinor ?? 0 }
+      : { percentBps: p.percentBps ?? 0 };
+  const lineChoice = (variantId: string) => {
+    const id = linePromotions[variantId];
+    return id ? promotionById.get(id) : undefined;
+  };
+  const hasItemPromotion = cart.some(
+    ({ item }) => !!lineChoice(item.variantId),
+  );
+  const manualBps =
+    orderDiscount.mode === "manual"
+      ? parsePercent(orderDiscount.percent)
+      : null;
+  const orderPromotion =
+    orderDiscount.mode === "promotion"
+      ? promotionById.get(orderDiscount.promotionId)
+      : undefined;
+  let discountProblem = "";
+  if (orderDiscount.mode === "manual") {
+    if (manualBps === null)
+      discountProblem = "Enter the discount as a percentage, e.g. 10.";
+    else if (orderDiscount.reason.trim().length < 3)
+      discountProblem = "Enter a reason for the discount.";
+    else if (!manager && manualBps > cashierLimitBps)
+      discountProblem = "This discount is above your limit.";
+  }
+  const subtotalAtPrice = cart.reduce(
     (sum, line) => sum + line.item.priceMinor * line.quantity,
     0,
   );
-  const taxLines = cart.map(({ item, quantity }) => {
-    const line = item.priceMinor * quantity;
-    const taxed = item.taxRateBps !== null && item.taxInclusive !== null;
-    return {
-      inclusive: !!item.taxInclusive,
-      tax: taxed ? lineTax(line, item.taxRateBps!, item.taxInclusive!) : 0,
-    };
-  });
-  const includedTax = taxLines
-    .filter((line) => line.inclusive)
-    .reduce((sum, line) => sum + line.tax, 0);
-  const addedTax = taxLines
-    .filter((line) => !line.inclusive)
-    .reduce((sum, line) => sum + line.tax, 0);
-  const total = subtotal + addedTax;
+  if (orderPromotion && subtotalAtPrice < orderPromotion.minSubtotalMinor)
+    discountProblem = `${orderPromotion.name} needs a bill of at least ${formatMoney(orderPromotion.minSubtotalMinor, current.currencyCode)}.`;
+  let priced: PriceResult | null = null;
+  try {
+    priced = price(
+      cart.map(({ item, quantity }) => {
+        const promo = lineChoice(item.variantId);
+        return {
+          lineMinor: item.priceMinor * quantity,
+          quantity,
+          item: promo ? asDiscount(promo) : undefined,
+          taxRateBps: item.taxRateBps,
+          taxInclusive: item.taxInclusive,
+        };
+      }),
+      orderPromotion
+        ? asDiscount(orderPromotion)
+        : manualBps !== null && !discountProblem
+          ? { percentBps: manualBps }
+          : undefined,
+    );
+  } catch (e) {
+    discountProblem = e instanceof Error ? e.message : "Check the discount.";
+  }
+  const subtotal = priced?.subtotalMinor ?? subtotalAtPrice;
+  const discountTotal = priced?.discountMinor ?? 0;
+  const includedTax = priced?.includedTaxMinor ?? 0;
+  const addedTax = priced?.addedTaxMinor ?? 0;
+  const total = priced?.totalMinor ?? subtotal;
   const cashMinor = parseMoney(cash, current.currencyCode);
   const change = cashMinor === null ? null : cashMinor - total;
   const canSell =
     !!storeId &&
     shiftOpen &&
     cart.length > 0 &&
+    !discountProblem &&
     Number.isSafeInteger(total) &&
     total <= 1_000_000_000_000 &&
     cashMinor !== null &&
@@ -240,8 +343,15 @@ function SalesWorkspace() {
         items: cart.map(({ item, quantity }) => ({
           variantId: item.variantId,
           quantity,
+          promotionId: lineChoice(item.variantId)?.id,
         })),
         cashReceivedMinor: cashMinor,
+        discount:
+          orderDiscount.mode === "promotion"
+            ? { promotionId: orderDiscount.promotionId }
+            : orderDiscount.mode === "manual" && manualBps !== null
+              ? { percentBps: manualBps, reason: orderDiscount.reason.trim() }
+              : undefined,
       });
       router.push(workspacePath(current.slug, `/sales/${sale.id}`));
     } catch (e) {
@@ -491,7 +601,7 @@ function SalesWorkspace() {
             </p>
           ) : (
             <div className="mt-4 divide-y divide-line border-t border-line">
-              {cart.map(({ item, quantity }) => (
+              {cart.map(({ item, quantity }, index) => (
                 <div key={item.variantId} className="py-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -549,15 +659,60 @@ function SalesWorkspace() {
                         <Plus className="h-3 w-3" />
                       </button>
                     </div>
-                    <span className="text-sm font-medium">
+                    <span className="text-right text-sm font-medium">
+                      {(priced?.lines[index]?.discountMinor ?? 0) > 0 && (
+                        <span className="block text-xs font-normal text-muted line-through">
+                          {formatMoney(
+                            item.priceMinor * quantity,
+                            current.currencyCode,
+                          )}
+                        </span>
+                      )}
                       {formatMoney(
-                        item.priceMinor * quantity,
+                        priced?.lines[index]?.netMinor ??
+                          item.priceMinor * quantity,
                         current.currencyCode,
                       )}
                     </span>
                   </div>
+                  {itemPromotions.length > 0 &&
+                    orderDiscount.mode === "none" && (
+                      <Select
+                        ariaLabel={`Promotion for ${item.sku}`}
+                        className="mt-2 w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground"
+                        value={lineChoice(item.variantId)?.id ?? ""}
+                        disabled={busy}
+                        onValueChange={(id) =>
+                          changeLinePromotion(item.variantId, id)
+                        }
+                        options={[
+                          { value: "", label: "No item promotion" },
+                          ...itemPromotions.map((p) => ({
+                            value: p.id,
+                            label: promotionLabel(p, current.currencyCode),
+                          })),
+                        ]}
+                      />
+                    )}
                 </div>
               ))}
+            </div>
+          )}
+          {cart.length > 0 && (
+            <div className="mb-4">
+              <DiscountPanel
+                value={orderDiscount}
+                onChange={changeDiscount}
+                promotions={orderPromotions}
+                cashierLimitBps={cashierLimitBps}
+                blockedByItems={hasItemPromotion}
+                disabled={busy}
+              />
+              {discountProblem && (
+                <p role="alert" className="mt-2 text-xs text-danger-ink">
+                  {discountProblem}
+                </p>
+              )}
             </div>
           )}
           <div className="space-y-2 border-t border-line pt-4 text-sm">
@@ -565,6 +720,12 @@ function SalesWorkspace() {
               <span>Subtotal</span>
               <span>{formatMoney(subtotal, current.currencyCode)}</span>
             </div>
+            {discountTotal > 0 && (
+              <div className="flex justify-between text-success-ink">
+                <span>Discount</span>
+                <span>−{formatMoney(discountTotal, current.currencyCode)}</span>
+              </div>
+            )}
             {addedTax > 0 && (
               <div className="flex justify-between text-muted">
                 <span>Tax added</span>

@@ -43,7 +43,11 @@ export function ReturnForm({ sale }: { sale: Sale }) {
     (sum, { item, quantity }) =>
       sum +
       share(
-        lineGross(item.lineTotalMinor, item.taxMinor, !!item.taxInclusive),
+        lineGross(
+          item.lineTotalMinor - item.discountMinor,
+          item.taxMinor,
+          !!item.taxInclusive,
+        ),
         item.quantity,
         item.returnedQuantity,
         quantity,

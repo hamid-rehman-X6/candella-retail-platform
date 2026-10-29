@@ -84,16 +84,16 @@ func (r *postgresRepository) CreateReturn(ctx context.Context, tenantID, userID,
 		var refund, refundTax int64
 		for _, line := range in.Items {
 			var item ReturnItem
-			var sold, returned, lineTotal, lineTax int64
+			var sold, returned, lineTotal, lineDiscount, lineTax int64
 			var inclusive *bool
 			err := tx.QueryRow(ctx, `SELECT oi.product_name_snapshot, oi.variant_name_snapshot, oi.sku_snapshot,
-				oi.quantity, oi.unit_price_minor, oi.line_total_minor, oi.tax_minor, oi.tax_inclusive,
+				oi.quantity, oi.unit_price_minor, oi.line_total_minor, oi.discount_minor, oi.tax_minor, oi.tax_inclusive,
 				COALESCE((SELECT sum(ri.quantity) FROM return_items ri
 				  WHERE ri.tenant_id=oi.tenant_id AND ri.order_id=oi.order_id AND ri.variant_id=oi.variant_id), 0)
 				FROM order_items oi WHERE oi.tenant_id=$1 AND oi.order_id=$2 AND oi.variant_id=$3`,
 				tenantID, orderID, line.VariantID).
 				Scan(&item.ProductName, &item.VariantName, &item.SKU, &sold, &item.UnitPriceMinor,
-					&lineTotal, &lineTax, &inclusive, &returned)
+					&lineTotal, &lineDiscount, &lineTax, &inclusive, &returned)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrReturnItemNotInSale
 			}
@@ -110,7 +110,8 @@ func (r *postgresRepository) CreateReturn(ctx context.Context, tenantID, userID,
 			// included, worked out from the sale's own snapshot. Shares of a
 			// line always add up to the line, so a full return refunds the
 			// line to the paisa however it was split.
-			gross := tax.Gross(lineTotal, lineTax, inclusive != nil && *inclusive)
+			// Discounts came off before tax, so the customer paid the net line.
+			gross := tax.Gross(lineTotal-lineDiscount, lineTax, inclusive != nil && *inclusive)
 			item.LineRefundMinor = tax.Share(gross, sold, returned, item.Quantity)
 			item.TaxMinor = tax.Share(lineTax, sold, returned, item.Quantity)
 			refund += item.LineRefundMinor

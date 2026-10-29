@@ -52,7 +52,7 @@ func (r *postgresRepository) DailyReport(ctx context.Context, tenantID string, f
 			report.Days = append(report.Days, ReportDay{Date: key})
 		}
 		rows, err := tx.Query(ctx, `SELECT to_char(o.created_at AT TIME ZONE $4, 'YYYY-MM-DD') AS business_day,
-		  count(*), COALESCE(sum(p.amount_minor),0)::bigint, COALESCE(sum(o.tax_minor),0)::bigint FROM orders o
+		  count(*), COALESCE(sum(p.amount_minor),0)::bigint, COALESCE(sum(o.tax_minor),0)::bigint, COALESCE(sum(o.discount_minor),0)::bigint FROM orders o
 		  JOIN payments p ON p.tenant_id=o.tenant_id AND p.order_id=o.id AND p.method='cash' AND p.status='completed'
 		  WHERE o.tenant_id=$1 AND o.store_id=$2 AND o.status='completed'
 		    AND o.created_at >= $3 AND o.created_at < $5
@@ -62,13 +62,14 @@ func (r *postgresRepository) DailyReport(ctx context.Context, tenantID string, f
 		}
 		for rows.Next() {
 			var key string
-			var count, gross, taxMinor int64
-			if err := rows.Scan(&key, &count, &gross, &taxMinor); err != nil {
+			var count, gross, taxMinor, discountMinor int64
+			if err := rows.Scan(&key, &count, &gross, &taxMinor, &discountMinor); err != nil {
 				rows.Close()
 				return err
 			}
 			if i, ok := index[key]; ok {
 				report.Days[i].SalesCount, report.Days[i].GrossCashMinor, report.Days[i].TaxMinor = count, gross, taxMinor
+				report.Days[i].DiscountMinor = discountMinor
 			}
 		}
 		err = rows.Err()
@@ -107,6 +108,7 @@ func (r *postgresRepository) DailyReport(ctx context.Context, tenantID string, f
 			report.Totals.TaxMinor += day.TaxMinor
 			report.Totals.RefundedTaxMinor += day.RefundedTaxMinor
 			report.Totals.NetTaxMinor += day.NetTaxMinor
+			report.Totals.DiscountMinor += day.DiscountMinor
 			report.Totals.SalesCount += day.SalesCount
 			report.Totals.GrossCashMinor += day.GrossCashMinor
 			report.Totals.RefundsCount += day.RefundsCount

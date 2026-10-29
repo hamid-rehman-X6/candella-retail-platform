@@ -5,15 +5,27 @@ import "time"
 type CartItem struct {
 	VariantID string `json:"variantId"`
 	Quantity  int64  `json:"quantity"`
+	// An item promotion for this line. omitempty keeps the idempotency hash of
+	// carts without one exactly as it was before discounts existed.
+	PromotionID string `json:"promotionId,omitempty"`
+}
+
+// DiscountInput is an order-level discount: an approved promotion, or a
+// manual percentage with a reason.
+type DiscountInput struct {
+	PromotionID string `json:"promotionId,omitempty"`
+	PercentBps  int64  `json:"percentBps,omitempty"`
+	Reason      string `json:"reason,omitempty"`
 }
 
 type CheckoutInput struct {
-	StoreID           string     `json:"storeId"`
-	RegisterID        string     `json:"registerId"`
-	CustomerID        string     `json:"customerId"`
-	IdempotencyKey    string     `json:"idempotencyKey"`
-	Items             []CartItem `json:"items"`
-	CashReceivedMinor int64      `json:"cashReceivedMinor"`
+	StoreID           string         `json:"storeId"`
+	RegisterID        string         `json:"registerId"`
+	CustomerID        string         `json:"customerId"`
+	IdempotencyKey    string         `json:"idempotencyKey"`
+	Items             []CartItem     `json:"items"`
+	CashReceivedMinor int64          `json:"cashReceivedMinor"`
+	Discount          *DiscountInput `json:"discount,omitempty"`
 }
 
 type SaleItem struct {
@@ -31,28 +43,38 @@ type SaleItem struct {
 	TaxRateBps   *int64  `json:"taxRateBps"`
 	TaxInclusive *bool   `json:"taxInclusive"`
 	TaxMinor     int64   `json:"taxMinor"`
+	// Discount on this line: its item promotion plus its share of any order
+	// discount. Tax above was worked out after it.
+	DiscountMinor int64   `json:"discountMinor"`
+	PromotionName *string `json:"promotionName"`
 }
 
 type Sale struct {
-	ID                string     `json:"id"`
-	CustomerID        string     `json:"customerId"`
-	CustomerName      string     `json:"customerName"`
-	StoreID           string     `json:"storeId"`
-	StoreName         string     `json:"storeName"`
-	RegisterName      string     `json:"registerName"` // empty for sales made before shifts existed
-	ShiftID           string     `json:"shiftId"`
-	OrderNumber       string     `json:"orderNumber"`
-	CashierID         string     `json:"cashierId"`
-	CashierName       string     `json:"cashierName"`
-	Status            string     `json:"status"`
-	CurrencyCode      string     `json:"currencyCode"`
-	Items             []SaleItem `json:"items"`
-	SubtotalMinor     int64      `json:"subtotalMinor"`
-	TaxMinor          int64      `json:"taxMinor"`
-	GrandTotalMinor   int64      `json:"grandTotalMinor"`
-	CashReceivedMinor int64      `json:"cashReceivedMinor"`
-	ChangeMinor       int64      `json:"changeMinor"`
-	CreatedAt         time.Time  `json:"createdAt"`
+	ID            string     `json:"id"`
+	CustomerID    string     `json:"customerId"`
+	CustomerName  string     `json:"customerName"`
+	StoreID       string     `json:"storeId"`
+	StoreName     string     `json:"storeName"`
+	RegisterName  string     `json:"registerName"` // empty for sales made before shifts existed
+	ShiftID       string     `json:"shiftId"`
+	OrderNumber   string     `json:"orderNumber"`
+	CashierID     string     `json:"cashierId"`
+	CashierName   string     `json:"cashierName"`
+	Status        string     `json:"status"`
+	CurrencyCode  string     `json:"currencyCode"`
+	Items         []SaleItem `json:"items"`
+	SubtotalMinor int64      `json:"subtotalMinor"`
+	DiscountMinor int64      `json:"discountMinor"`
+	// The order-level discount as given; nil when the sale had none.
+	DiscountKind       *string   `json:"discountKind"`
+	DiscountName       *string   `json:"discountName"`
+	DiscountPercentBps *int64    `json:"discountPercentBps"`
+	DiscountReason     *string   `json:"discountReason"`
+	TaxMinor           int64     `json:"taxMinor"`
+	GrandTotalMinor    int64     `json:"grandTotalMinor"`
+	CashReceivedMinor  int64     `json:"cashReceivedMinor"`
+	ChangeMinor        int64     `json:"changeMinor"`
+	CreatedAt          time.Time `json:"createdAt"`
 	// Returns made against this sale, oldest first. The sale itself never changes.
 	Returns       []ReturnSummary `json:"returns"`
 	RefundedMinor int64           `json:"refundedMinor"`

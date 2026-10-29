@@ -11,6 +11,8 @@ export type ReportDay = {
   taxMinor: number;
   refundedTaxMinor: number;
   netTaxMinor: number;
+  /** Discounts given on the day's sales. */
+  discountMinor: number;
 };
 export type TopProduct = {
   productId: string;
