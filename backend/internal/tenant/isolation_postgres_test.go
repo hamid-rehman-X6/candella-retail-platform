@@ -30,7 +30,7 @@ var tenantTables = []string{
 	"suppliers", "supplier_variants", "catalog_import_batches", "registers", "register_sessions",
 	"returns", "return_items", "customers", "purchase_orders", "purchase_order_items",
 	"goods_receipts", "goods_receipt_items",
-	"reorder_settings",
+	"reorder_settings", "tax_rates",
 }
 
 // controlPlaneTables carry a tenant_id but are read before a tenant is in scope:
@@ -120,7 +120,7 @@ func setupIsolation(t *testing.T) *isolationEnv {
 
 type seededTenant struct {
 	tenantID, userID, storeID, productID, variantID, orderID, supplierID, customerID, registerID, shiftID, returnID string
-	purchaseID, receiptID                                                                                           string
+	purchaseID, receiptID, taxRateID                                                                                string
 }
 
 // seedTenant writes one row of every tenant table for a new tenant, as the
@@ -132,7 +132,7 @@ func seedTenant(t *testing.T, env *isolationEnv) seededTenant {
 		productID: id.New(id.Product), variantID: id.New(id.ProductVariant),
 		orderID: id.New(id.Order), supplierID: id.New(id.Supplier), customerID: id.New(id.Customer),
 		purchaseID: id.New(id.PurchaseOrder), receiptID: id.New(id.GoodsReceipt),
-		registerID: id.New(id.Register), shiftID: id.New(id.RegisterSession), returnID: id.New(id.Return),
+		registerID: id.New(id.Register), shiftID: id.New(id.RegisterSession), returnID: id.New(id.Return), taxRateID: id.New(id.TaxRate),
 	}
 	statements := []struct {
 		query string
@@ -145,7 +145,9 @@ func seedTenant(t *testing.T, env *isolationEnv) seededTenant {
 		  VALUES ($1, $2, $3, 'owner', 'active')`, []any{id.New(id.TenantMembership), s.tenantID, s.userID}},
 		{`INSERT INTO stores (id, tenant_id, name, is_default) VALUES ($1, $2, 'Main', true)`, []any{s.storeID, s.tenantID}},
 		{`INSERT INTO store_access (tenant_id, store_id, user_id) VALUES ($1, $2, $3)`, []any{s.tenantID, s.storeID, s.userID}},
-		{`INSERT INTO products (id, tenant_id, name) VALUES ($1, $2, 'Original')`, []any{s.productID, s.tenantID}},
+		{`INSERT INTO tax_rates (id, tenant_id, name, rate_bps, inclusive) VALUES ($1, $2, 'GST', 1800, true)`,
+			[]any{s.taxRateID, s.tenantID}},
+		{`INSERT INTO products (id, tenant_id, name, tax_rate_id) VALUES ($1, $2, 'Original', $3)`, []any{s.productID, s.tenantID, s.taxRateID}},
 		{`INSERT INTO product_variants (id, tenant_id, product_id, sku, price_minor)
 		  VALUES ($1, $2, $3, $1, 15000)`, []any{s.variantID, s.tenantID, s.productID}},
 		{`INSERT INTO stock_levels (id, tenant_id, store_id, variant_id, quantity)

@@ -15,6 +15,8 @@ import { useStoreSelection } from "@/lib/use-store-selection";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog, Modal, modalButton } from "@/components/ui/modal";
 import { toast } from "@/lib/toast";
+import { formatRate } from "@/lib/tax";
+import { listTaxRates, type TaxRate } from "@/lib/tax-api";
 import {
   addVariant,
   createProduct,
@@ -60,6 +62,8 @@ export default function ProductsPage() {
   const [price, setPrice] = useState("");
   const [initialQuantity, setInitialQuantity] = useState("0");
   const formId = useId();
+  const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
+  const [taxRateId, setTaxRateId] = useState("");
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const loadID = useRef(0);
@@ -93,6 +97,19 @@ export default function ProductsPage() {
     return () => clearTimeout(timer);
   }, [refresh, search]);
 
+  useEffect(() => {
+    let cancelled = false;
+    // Rates are optional: without them products are simply sold untaxed.
+    void listTaxRates(current.id)
+      .then((data) => {
+        if (!cancelled) setTaxRates(data.taxRates);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [current.id]);
+
   function changeStore(id: string) {
     loadID.current++;
     setProducts([]);
@@ -109,6 +126,7 @@ export default function ProductsPage() {
     setBarcode("");
     setPrice("");
     setInitialQuantity("0");
+    setTaxRateId("");
     setError("");
     setForm("create");
   }
@@ -125,6 +143,7 @@ export default function ProductsPage() {
     setSelected(product);
     setName(product.name);
     setDescription(product.description);
+    setTaxRateId(product.taxRateId ?? "");
     setError("");
     setForm("edit");
   }
@@ -172,6 +191,7 @@ export default function ProductsPage() {
           description,
           initialQuantity: openingStock,
           storeId,
+          taxRateId: taxRateId || undefined,
           variant: {
             name: variantName || "Standard",
             sku: sku.trim(),
@@ -194,7 +214,11 @@ export default function ProductsPage() {
           priceMinor,
         });
       } else if (form === "edit" && selected) {
-        await updateProduct(current.id, selected.id, { name, description });
+        await updateProduct(current.id, selected.id, {
+          name,
+          description,
+          taxRateId,
+        });
       }
       setForm(null);
       await refresh();
@@ -354,6 +378,9 @@ export default function ProductsPage() {
                         Archived
                       </span>
                     )}
+                    <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted">
+                      {product.taxRateName ?? "No tax"}
+                    </span>
                   </div>
                   {product.description && (
                     <p className="mt-1 text-sm text-muted">
@@ -539,6 +566,48 @@ export default function ProductsPage() {
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </label>
+              <div>
+                <p className="text-sm font-medium">Tax</p>
+                <Select
+                  ariaLabel="Tax on this product"
+                  className={`${field} mt-1.5`}
+                  value={taxRateId}
+                  onValueChange={setTaxRateId}
+                  options={[
+                    { value: "", label: "No tax" },
+                    ...(taxRateId && !taxRates.some((r) => r.id === taxRateId)
+                      ? [
+                          {
+                            value: taxRateId,
+                            label: selected?.taxRateName ?? "Current rate",
+                          },
+                        ]
+                      : []),
+                    ...taxRates.map((rate) => ({
+                      value: rate.id,
+                      label: `${rate.name} · ${formatRate(rate.rateBps)} ${
+                        rate.inclusive ? "included" : "added"
+                      }`,
+                    })),
+                  ]}
+                />
+                <p className="mt-1 text-xs text-muted">
+                  {taxRates.length === 0 ? (
+                    <>
+                      No tax rates yet.{" "}
+                      <Link
+                        href={workspacePath(current.slug, "/taxes")}
+                        className="text-accent-ink hover:underline"
+                      >
+                        Add one in Taxes
+                      </Link>
+                      .
+                    </>
+                  ) : (
+                    "Applies to every variant. Past sales keep the tax they were sold with."
+                  )}
+                </p>
+              </div>
             </>
           )}
           {form !== "edit" && (

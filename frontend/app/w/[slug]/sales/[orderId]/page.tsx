@@ -8,6 +8,7 @@ import { useApp, workspacePath } from "@/components/app/app-context";
 import { ReturnForm } from "@/components/app/return-form";
 import { formatDateTime } from "@/lib/datetime";
 import { formatMoney } from "@/lib/money";
+import { formatRate } from "@/lib/tax";
 import { getSale, type Sale } from "@/lib/sales-api";
 
 export default function ReceiptPage() {
@@ -125,6 +126,13 @@ export default function ReceiptPage() {
                     {item.sku} · {item.quantity} ×{" "}
                     {formatMoney(item.unitPriceMinor, sale.currencyCode)}
                   </p>
+                  {item.taxName && item.taxRateBps !== null && (
+                    <p className="mt-1 text-xs text-muted print:text-gray-600">
+                      {item.taxName} ({formatRate(item.taxRateBps)}
+                      {item.taxInclusive ? ", included" : ", added"}):{" "}
+                      {formatMoney(item.taxMinor, sale.currencyCode)}
+                    </p>
+                  )}
                   {item.returnedQuantity > 0 && (
                     <p className="mt-1 text-xs font-medium text-danger-ink print:text-black">
                       {item.returnedQuantity} returned
@@ -142,6 +150,16 @@ export default function ReceiptPage() {
               <dt>Subtotal</dt>
               <dd>{formatMoney(sale.subtotalMinor, sale.currencyCode)}</dd>
             </div>
+            {sale.taxMinor > 0 && (
+              <div className="flex justify-between">
+                <dt>
+                  Tax
+                  {sale.grandTotalMinor === sale.subtotalMinor &&
+                    " (included in prices)"}
+                </dt>
+                <dd>{formatMoney(sale.taxMinor, sale.currencyCode)}</dd>
+              </div>
+            )}
             <div className="flex justify-between text-lg font-semibold">
               <dt>Total</dt>
               <dd>{formatMoney(sale.grandTotalMinor, sale.currencyCode)}</dd>

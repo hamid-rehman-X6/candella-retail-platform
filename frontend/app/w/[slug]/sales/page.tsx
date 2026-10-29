@@ -13,6 +13,7 @@ import { ApiError } from "@/lib/api";
 import { listStock, type StockItem } from "@/lib/catalog-api";
 import { formatMoney, minorDigits, parseMoney } from "@/lib/money";
 import { checkout } from "@/lib/sales-api";
+import { lineTax } from "@/lib/tax";
 import { listCustomers, type Customer } from "@/lib/customers-api";
 
 type CartLine = { item: StockItem; quantity: number };
@@ -192,10 +193,26 @@ function SalesWorkspace() {
     setError("");
   }
 
-  const total = cart.reduce(
+  // The same per-line tax the server charges; it re-checks on confirm.
+  const subtotal = cart.reduce(
     (sum, line) => sum + line.item.priceMinor * line.quantity,
     0,
   );
+  const taxLines = cart.map(({ item, quantity }) => {
+    const line = item.priceMinor * quantity;
+    const taxed = item.taxRateBps !== null && item.taxInclusive !== null;
+    return {
+      inclusive: !!item.taxInclusive,
+      tax: taxed ? lineTax(line, item.taxRateBps!, item.taxInclusive!) : 0,
+    };
+  });
+  const includedTax = taxLines
+    .filter((line) => line.inclusive)
+    .reduce((sum, line) => sum + line.tax, 0);
+  const addedTax = taxLines
+    .filter((line) => !line.inclusive)
+    .reduce((sum, line) => sum + line.tax, 0);
+  const total = subtotal + addedTax;
   const cashMinor = parseMoney(cash, current.currencyCode);
   const change = cashMinor === null ? null : cashMinor - total;
   const canSell =
@@ -546,12 +563,23 @@ function SalesWorkspace() {
           <div className="space-y-2 border-t border-line pt-4 text-sm">
             <div className="flex justify-between text-muted">
               <span>Subtotal</span>
-              <span>{formatMoney(total, current.currencyCode)}</span>
+              <span>{formatMoney(subtotal, current.currencyCode)}</span>
             </div>
+            {addedTax > 0 && (
+              <div className="flex justify-between text-muted">
+                <span>Tax added</span>
+                <span>{formatMoney(addedTax, current.currencyCode)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-base font-semibold">
               <span>Total</span>
               <span>{formatMoney(total, current.currencyCode)}</span>
             </div>
+            {includedTax > 0 && (
+              <p className="text-right text-xs text-muted">
+                Includes {formatMoney(includedTax, current.currencyCode)} tax
+              </p>
+            )}
           </div>
           <div className="mt-5 space-y-3">
             <label className="block text-sm font-medium">

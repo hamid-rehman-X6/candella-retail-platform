@@ -16,6 +16,7 @@ import (
 
 	"candella-ecosystem/backend/internal/register"
 	"candella-ecosystem/backend/internal/store"
+	"candella-ecosystem/backend/internal/tax"
 	"candella-ecosystem/backend/pkg/database"
 	"candella-ecosystem/backend/pkg/id"
 )
@@ -99,17 +100,24 @@ func (r *postgresRepository) Create(ctx context.Context, tenantID, userID, cashi
 		}
 
 		items := make([]SaleItem, 0, len(in.Items))
+		taxRates := make([]*string, 0, len(in.Items))
 		before := make([]int64, 0, len(in.Items))
-		var total int64
+		var subtotal, taxTotal, exclusiveTax int64
 		for _, cart := range in.Items {
 			var item SaleItem
 			var status string
+			var taxRateID *string
 			item.VariantID = cart.VariantID
 			item.Quantity = cart.Quantity
-			err := tx.QueryRow(ctx, `SELECT p.name, v.name, v.sku, v.price_minor, p.status
+			// The rate is read with the price under the same lock, so the sale
+			// charges one consistent price-and-tax pair.
+			err := tx.QueryRow(ctx, `SELECT p.name, v.name, v.sku, v.price_minor, p.status,
+				t.id, t.name, t.rate_bps, t.inclusive
 				FROM product_variants v JOIN products p ON p.tenant_id=v.tenant_id AND p.id=v.product_id
+				LEFT JOIN tax_rates t ON t.tenant_id=p.tenant_id AND t.id=p.tax_rate_id
 				WHERE v.tenant_id=$1 AND v.id=$2 FOR UPDATE OF p, v`, tenantID, cart.VariantID).
-				Scan(&item.ProductName, &item.VariantName, &item.SKU, &item.UnitPriceMinor, &status)
+				Scan(&item.ProductName, &item.VariantName, &item.SKU, &item.UnitPriceMinor, &status,
+					&taxRateID, &item.TaxName, &item.TaxRateBps, &item.TaxInclusive)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return &Error{http.StatusNotFound, "variant_not_found", "A cart item was not found in this workspace. Remove it and try again."}
 			}
@@ -132,12 +140,24 @@ func (r *postgresRepository) Create(ctx context.Context, tenantID, userID, cashi
 				return &Error{http.StatusConflict, "insufficient_stock",
 					fmt.Sprintf("Only %d unit(s) of %s are available. Reduce the quantity or receive stock.", available, item.SKU)}
 			}
-			item.LineTotalMinor, total, err = addLine(total, item.UnitPriceMinor, item.Quantity)
+			item.LineTotalMinor, subtotal, err = addLine(subtotal, item.UnitPriceMinor, item.Quantity)
 			if err != nil {
 				return err
 			}
+			if item.TaxRateBps != nil {
+				item.TaxMinor = tax.Line(item.LineTotalMinor, *item.TaxRateBps, *item.TaxInclusive)
+				taxTotal += item.TaxMinor
+				if !*item.TaxInclusive {
+					exclusiveTax += item.TaxMinor
+				}
+			}
 			items = append(items, item)
+			taxRates = append(taxRates, taxRateID)
 			before = append(before, available)
+		}
+		total := subtotal + exclusiveTax
+		if total > maxSaleMinor {
+			return ErrTotalLarge
 		}
 		if in.CashReceivedMinor < total {
 			return ErrCashShort
@@ -154,18 +174,20 @@ func (r *postgresRepository) Create(ctx context.Context, tenantID, userID, cashi
 		if _, err := tx.Exec(ctx, `INSERT INTO orders
 			(id, tenant_id, store_id, store_name_snapshot, order_number, idempotency_key, request_hash,
 			 currency_code, subtotal_minor, grand_total_minor, created_by, cashier_name_snapshot, register_session_id,
-			 customer_id, customer_name_snapshot)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`, orderID, tenantID, storeID, location.Name, orderNumber,
-			in.IdempotencyKey, hash, currency, total, total, userID, cashierName, shiftID, customerID, customerName); err != nil {
+			 customer_id, customer_name_snapshot, tax_minor)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`, orderID, tenantID, storeID, location.Name, orderNumber,
+			in.IdempotencyKey, hash, currency, subtotal, total, userID, cashierName, shiftID, customerID, customerName, taxTotal); err != nil {
 			return err
 		}
 		for index, item := range items {
 			if _, err := tx.Exec(ctx, `INSERT INTO order_items
 				(id, tenant_id, order_id, variant_id, product_name_snapshot, variant_name_snapshot,
-				 sku_snapshot, quantity, unit_price_minor, line_total_minor)
-				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, id.New(id.OrderItem), tenantID, orderID,
+				 sku_snapshot, quantity, unit_price_minor, line_total_minor,
+				 tax_rate_id, tax_name_snapshot, tax_rate_bps, tax_inclusive, tax_minor)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`, id.New(id.OrderItem), tenantID, orderID,
 				item.VariantID, item.ProductName, item.VariantName, item.SKU, item.Quantity,
-				item.UnitPriceMinor, item.LineTotalMinor); err != nil {
+				item.UnitPriceMinor, item.LineTotalMinor,
+				taxRates[index], item.TaxName, item.TaxRateBps, item.TaxInclusive, item.TaxMinor); err != nil {
 				return err
 			}
 			result, err := tx.Exec(ctx, `UPDATE stock_levels SET quantity=quantity-$4
@@ -291,13 +313,13 @@ func loadSale(ctx context.Context, tx pgx.Tx, tenantID, orderID string) (*Sale, 
 	sale := &Sale{Items: []SaleItem{}}
 	err := tx.QueryRow(ctx, `SELECT o.id, o.store_id, o.store_name_snapshot, COALESCE(rs.register_name_snapshot, ''), COALESCE(o.register_session_id, ''),
 		o.order_number, o.created_by, o.cashier_name_snapshot, o.status, o.currency_code,
-		o.subtotal_minor, o.grand_total_minor, p.cash_received_minor, p.change_minor, o.created_at,
+		o.subtotal_minor, o.tax_minor, o.grand_total_minor, p.cash_received_minor, p.change_minor, o.created_at,
 		COALESCE(o.customer_id,''), o.customer_name_snapshot
 		FROM orders o JOIN payments p ON p.tenant_id=o.tenant_id AND p.order_id=o.id
 		LEFT JOIN register_sessions rs ON rs.tenant_id=o.tenant_id AND rs.id=o.register_session_id
 		WHERE o.tenant_id=$1 AND o.id=$2`, tenantID, orderID).
 		Scan(&sale.ID, &sale.StoreID, &sale.StoreName, &sale.RegisterName, &sale.ShiftID, &sale.OrderNumber, &sale.CashierID, &sale.CashierName, &sale.Status, &sale.CurrencyCode, &sale.SubtotalMinor,
-			&sale.GrandTotalMinor, &sale.CashReceivedMinor, &sale.ChangeMinor, &sale.CreatedAt,
+			&sale.TaxMinor, &sale.GrandTotalMinor, &sale.CashReceivedMinor, &sale.ChangeMinor, &sale.CreatedAt,
 			&sale.CustomerID, &sale.CustomerName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -307,6 +329,7 @@ func loadSale(ctx context.Context, tx pgx.Tx, tenantID, orderID string) (*Sale, 
 	}
 	rows, err := tx.Query(ctx, `SELECT oi.variant_id, oi.product_name_snapshot, oi.variant_name_snapshot,
 		oi.sku_snapshot, oi.quantity, oi.unit_price_minor, oi.line_total_minor,
+		oi.tax_name_snapshot, oi.tax_rate_bps, oi.tax_inclusive, oi.tax_minor,
 		COALESCE((SELECT sum(ri.quantity) FROM return_items ri
 		  WHERE ri.tenant_id=oi.tenant_id AND ri.order_id=oi.order_id AND ri.variant_id=oi.variant_id), 0)
 		FROM order_items oi
@@ -318,7 +341,8 @@ func loadSale(ctx context.Context, tx pgx.Tx, tenantID, orderID string) (*Sale, 
 	for rows.Next() {
 		var item SaleItem
 		if err := rows.Scan(&item.VariantID, &item.ProductName, &item.VariantName, &item.SKU,
-			&item.Quantity, &item.UnitPriceMinor, &item.LineTotalMinor, &item.ReturnedQuantity); err != nil {
+			&item.Quantity, &item.UnitPriceMinor, &item.LineTotalMinor,
+			&item.TaxName, &item.TaxRateBps, &item.TaxInclusive, &item.TaxMinor, &item.ReturnedQuantity); err != nil {
 			return nil, err
 		}
 		sale.Items = append(sale.Items, item)

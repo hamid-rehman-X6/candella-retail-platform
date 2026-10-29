@@ -39,7 +39,7 @@ func (r *postgresRepository) ListProducts(ctx context.Context, tenantID, search 
 			return err
 		}
 		rows, err := tx.Query(ctx, `
-			SELECT p.id, p.name, p.description, p.status, p.created_at,
+			SELECT p.id, p.name, p.description, p.status, p.created_at, p.tax_rate_id, t.name,
 			       v.id, v.name, v.sku, v.barcode, v.price_minor, COALESCE(s.quantity, 0)
 			FROM (SELECT p.* FROM products p WHERE p.tenant_id = $1
 			      AND ($2 = '' OR p.name ILIKE '%' || $2 || '%'
@@ -47,6 +47,7 @@ func (r *postgresRepository) ListProducts(ctx context.Context, tenantID, search 
 			                   AND sv.product_id = p.id AND (sv.sku ILIKE '%' || $2 || '%' OR sv.barcode ILIKE '%' || $2 || '%')))
 			      ORDER BY p.created_at DESC, p.id DESC LIMIT $3 OFFSET $4) p
 			JOIN product_variants v ON v.tenant_id = p.tenant_id AND v.product_id = p.id
+			LEFT JOIN tax_rates t ON t.tenant_id = p.tenant_id AND t.id = p.tax_rate_id
 			LEFT JOIN stock_levels s ON s.tenant_id = p.tenant_id AND s.variant_id = v.id AND s.store_id = $5
 			ORDER BY p.created_at DESC, p.id DESC, v.created_at, v.id`, tenantID, search, limit, offset, location.ID)
 		if err != nil {
@@ -57,7 +58,7 @@ func (r *postgresRepository) ListProducts(ctx context.Context, tenantID, search 
 		for rows.Next() {
 			var p Product
 			var v Variant
-			if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Status, &p.CreatedAt,
+			if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Status, &p.CreatedAt, &p.TaxRateID, &p.TaxRateName,
 				&v.ID, &v.Name, &v.SKU, &v.Barcode, &v.PriceMinor, &v.Quantity); err != nil {
 				return err
 			}
@@ -75,6 +76,16 @@ func (r *postgresRepository) ListProducts(ctx context.Context, tenantID, search 
 	return out, err
 }
 
+// activeTaxRate returns the name of a rate a product may be given.
+func activeTaxRate(ctx context.Context, tx pgx.Tx, tenantID, rateID string) (string, error) {
+	var name string
+	err := tx.QueryRow(ctx, `SELECT name FROM tax_rates WHERE tenant_id=$1 AND id=$2 AND status='active'`, tenantID, rateID).Scan(&name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrTaxRate
+	}
+	return name, err
+}
+
 // skuForVariant encodes the case-sensitive variant ID suffix as uppercase hex.
 // The encoding is injective, so case-insensitive SKU uniqueness holds for IDs.
 func skuForVariant(variantID string) string { return fmt.Sprintf("SKU-%X", variantID[4:]) }
@@ -89,8 +100,15 @@ func (r *postgresRepository) CreateProduct(ctx context.Context, tenantID, userID
 		v.Barcode = &in.Variant.Barcode
 	}
 	err := withCatalogTx(ctx, r.db, tenantID, func(tx pgx.Tx) error {
-		if err := tx.QueryRow(ctx, `INSERT INTO products (id, tenant_id, name, description) VALUES ($1,$2,$3,$4) RETURNING created_at`,
-			p.ID, tenantID, p.Name, p.Description).Scan(&p.CreatedAt); err != nil {
+		if in.TaxRateID != "" {
+			name, err := activeTaxRate(ctx, tx, tenantID, in.TaxRateID)
+			if err != nil {
+				return err
+			}
+			p.TaxRateID, p.TaxRateName = &in.TaxRateID, &name
+		}
+		if err := tx.QueryRow(ctx, `INSERT INTO products (id, tenant_id, name, description, tax_rate_id) VALUES ($1,$2,$3,$4,$5) RETURNING created_at`,
+			p.ID, tenantID, p.Name, p.Description, p.TaxRateID).Scan(&p.CreatedAt); err != nil {
 			return err
 		}
 		_, err := tx.Exec(ctx, `INSERT INTO product_variants (id, tenant_id, product_id, name, sku, barcode, price_minor)
@@ -124,15 +142,29 @@ func (r *postgresRepository) CreateProduct(ctx context.Context, tenantID, userID
 func (r *postgresRepository) UpdateProduct(ctx context.Context, tenantID, productID string, in UpdateProductInput) (*Product, error) {
 	var p Product
 	err := withCatalogTx(ctx, r.db, tenantID, func(tx pgx.Tx) error {
+		if in.TaxRateID != nil && *in.TaxRateID != "" {
+			if _, err := activeTaxRate(ctx, tx, tenantID, *in.TaxRateID); err != nil {
+				return err
+			}
+		}
 		err := tx.QueryRow(ctx, `UPDATE products SET name = COALESCE($3, name), description = COALESCE($4, description),
-			status = COALESCE($5, status) WHERE tenant_id = $1 AND id = $2
-			RETURNING id, name, description, status, created_at`, tenantID, productID, in.Name, in.Description, in.Status).
-			Scan(&p.ID, &p.Name, &p.Description, &p.Status, &p.CreatedAt)
+			status = COALESCE($5, status),
+			tax_rate_id = CASE WHEN $6::text IS NULL THEN tax_rate_id ELSE NULLIF($6, '') END
+			WHERE tenant_id = $1 AND id = $2
+			RETURNING id, name, description, status, created_at, tax_rate_id`, tenantID, productID, in.Name, in.Description, in.Status, in.TaxRateID).
+			Scan(&p.ID, &p.Name, &p.Description, &p.Status, &p.CreatedAt, &p.TaxRateID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
 		if err != nil {
 			return err
+		}
+		if p.TaxRateID != nil {
+			var name string
+			if err := tx.QueryRow(ctx, `SELECT name FROM tax_rates WHERE tenant_id=$1 AND id=$2`, tenantID, *p.TaxRateID).Scan(&name); err != nil {
+				return err
+			}
+			p.TaxRateName = &name
 		}
 		rows, err := tx.Query(ctx, `SELECT v.id, v.name, v.sku, v.barcode, v.price_minor, COALESCE(s.quantity, 0)
 			FROM product_variants v LEFT JOIN stores st ON st.tenant_id=v.tenant_id AND st.is_default
@@ -257,8 +289,10 @@ func (r *postgresRepository) ListStock(ctx context.Context, tenantID, search str
 		}
 		storeID = location.ID
 		rows, err := tx.Query(ctx, `SELECT v.id, p.id, p.name, v.name, v.sku, v.barcode, v.price_minor,
-			COALESCE(s.quantity, 0), rs.threshold, COALESCE(ps.id, fs.id), COALESCE(ps.name, fs.name), ps.id FROM product_variants v
+			COALESCE(s.quantity, 0), rs.threshold, COALESCE(ps.id, fs.id), COALESCE(ps.name, fs.name), ps.id,
+			t.name, t.rate_bps, t.inclusive FROM product_variants v
 			JOIN products p ON p.tenant_id=v.tenant_id AND p.id=v.product_id
+			LEFT JOIN tax_rates t ON t.tenant_id=p.tenant_id AND t.id=p.tax_rate_id
 			LEFT JOIN stock_levels s ON s.tenant_id=v.tenant_id AND s.variant_id=v.id AND s.store_id=$2
 			LEFT JOIN reorder_settings rs ON rs.tenant_id=v.tenant_id AND rs.variant_id=v.id AND rs.store_id=$2
 			LEFT JOIN suppliers ps ON ps.tenant_id=rs.tenant_id AND ps.id=rs.preferred_supplier_id AND ps.status='active'
@@ -277,7 +311,8 @@ func (r *postgresRepository) ListStock(ctx context.Context, tenantID, search str
 			var item StockItem
 			if err := rows.Scan(&item.VariantID, &item.ProductID, &item.ProductName, &item.VariantName,
 				&item.SKU, &item.Barcode, &item.PriceMinor, &item.Quantity, &item.ReorderThreshold,
-				&item.PreferredSupplierID, &item.PreferredSupplierName, &item.ConfiguredSupplierID); err != nil {
+				&item.PreferredSupplierID, &item.PreferredSupplierName, &item.ConfiguredSupplierID,
+				&item.TaxName, &item.TaxRateBps, &item.TaxInclusive); err != nil {
 				return err
 			}
 			out = append(out, item)

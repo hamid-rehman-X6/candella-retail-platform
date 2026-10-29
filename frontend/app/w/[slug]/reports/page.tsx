@@ -206,7 +206,11 @@ function ReportsWorkspace() {
           <p className="text-sm text-muted">
             {report.storeName} · {report.fromDate} to {report.toDate} ·{" "}
             {report.timezone}. Refunds are counted on the day they were paid,
-            including returns of earlier sales.
+            including returns of earlier sales. Net tax for the period:{" "}
+            <span className="font-medium text-foreground">
+              {money(report.totals.netTaxMinor)}
+            </span>
+            .
           </p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
@@ -248,7 +252,7 @@ function ReportsWorkspace() {
               Daily cash summary
             </h2>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[690px] text-left text-sm">
+              <table className="w-full min-w-[820px] text-left text-sm">
                 <thead className="border-b border-line text-muted">
                   <tr>
                     {[
@@ -257,6 +261,7 @@ function ReportsWorkspace() {
                       "Gross cash",
                       "Refunds",
                       "Net sales",
+                      "Net tax",
                     ].map((h) => (
                       <th key={h} className="px-5 py-3 font-medium">
                         {h}
@@ -281,6 +286,15 @@ function ReportsWorkspace() {
                       </td>
                       <td className="px-5 py-3 font-semibold">
                         {money(day.netSalesMinor)}
+                      </td>
+                      <td className="px-5 py-3">
+                        {money(day.netTaxMinor)}
+                        {day.refundedTaxMinor > 0 && (
+                          <span className="block text-xs text-muted">
+                            {money(day.taxMinor)} charged,{" "}
+                            {money(day.refundedTaxMinor)} refunded
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}

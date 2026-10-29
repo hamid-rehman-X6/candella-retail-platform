@@ -19,13 +19,16 @@ type ReturnInput struct {
 }
 
 type ReturnItem struct {
-	VariantID       string `json:"variantId"`
-	ProductName     string `json:"productName"`
-	VariantName     string `json:"variantName"`
-	SKU             string `json:"sku"`
-	Quantity        int64  `json:"quantity"`
-	UnitPriceMinor  int64  `json:"unitPriceMinor"`
-	LineRefundMinor int64  `json:"lineRefundMinor"`
+	VariantID      string `json:"variantId"`
+	ProductName    string `json:"productName"`
+	VariantName    string `json:"variantName"`
+	SKU            string `json:"sku"`
+	Quantity       int64  `json:"quantity"`
+	UnitPriceMinor int64  `json:"unitPriceMinor"`
+	// What the customer gets back for these units, including their share of
+	// the line's tax; TaxMinor is that tax share.
+	LineRefundMinor int64 `json:"lineRefundMinor"`
+	TaxMinor        int64 `json:"taxMinor"`
 }
 
 type Return struct {
@@ -40,6 +43,7 @@ type Return struct {
 	Reason        string       `json:"reason"`
 	RefundMethod  string       `json:"refundMethod"`
 	RefundMinor   int64        `json:"refundMinor"`
+	TaxMinor      int64        `json:"taxMinor"`
 	CurrencyCode  string       `json:"currencyCode"`
 	ProcessedBy   string       `json:"processedBy"`
 	ProcessorName string       `json:"processorName"`

@@ -14,10 +14,13 @@ type Variant struct {
 }
 
 type Product struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Status      string    `json:"status"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Status      string `json:"status"`
+	// The rate charged on every variant; nil means the product is not taxed.
+	TaxRateID   *string   `json:"taxRateId"`
+	TaxRateName *string   `json:"taxRateName"`
 	Variants    []Variant `json:"variants"`
 	CreatedAt   time.Time `json:"createdAt"`
 }
@@ -35,6 +38,10 @@ type StockItem struct {
 	PreferredSupplierID   *string `json:"preferredSupplierId"`
 	PreferredSupplierName *string `json:"preferredSupplierName"`
 	ConfiguredSupplierID  *string `json:"configuredSupplierId"`
+	// The product's tax, so the till can show it before checkout confirms it.
+	TaxName      *string `json:"taxName"`
+	TaxRateBps   *int64  `json:"taxRateBps"`
+	TaxInclusive *bool   `json:"taxInclusive"`
 }
 
 type ReorderItem struct {
@@ -78,6 +85,7 @@ type CreateProductInput struct {
 	Description     string             `json:"description"`
 	Variant         CreateVariantInput `json:"variant"`
 	InitialQuantity *int64             `json:"initialQuantity"`
+	TaxRateID       string             `json:"taxRateId"`
 }
 
 type CreateVariantInput struct {
@@ -91,6 +99,8 @@ type UpdateProductInput struct {
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
 	Status      *string `json:"status"`
+	// "" removes the product's tax.
+	TaxRateID *string `json:"taxRateId"`
 }
 
 type UpdateVariantInput struct {

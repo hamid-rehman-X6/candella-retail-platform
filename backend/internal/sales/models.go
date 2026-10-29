@@ -26,6 +26,11 @@ type SaleItem struct {
 	LineTotalMinor int64  `json:"lineTotalMinor"`
 	// Units already taken back; Quantity - ReturnedQuantity can still be returned.
 	ReturnedQuantity int64 `json:"returnedQuantity"`
+	// The tax as charged on this line; nil fields mean the line was not taxed.
+	TaxName      *string `json:"taxName"`
+	TaxRateBps   *int64  `json:"taxRateBps"`
+	TaxInclusive *bool   `json:"taxInclusive"`
+	TaxMinor     int64   `json:"taxMinor"`
 }
 
 type Sale struct {
@@ -43,6 +48,7 @@ type Sale struct {
 	CurrencyCode      string     `json:"currencyCode"`
 	Items             []SaleItem `json:"items"`
 	SubtotalMinor     int64      `json:"subtotalMinor"`
+	TaxMinor          int64      `json:"taxMinor"`
 	GrandTotalMinor   int64      `json:"grandTotalMinor"`
 	CashReceivedMinor int64      `json:"cashReceivedMinor"`
 	ChangeMinor       int64      `json:"changeMinor"`

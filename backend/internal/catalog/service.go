@@ -62,6 +62,11 @@ func trimVariant(v CreateVariantInput) (CreateVariantInput, error) {
 	return v, nil
 }
 
+// ErrTaxRate covers a rate that is malformed, missing or archived.
+var ErrTaxRate = &Error{http.StatusBadRequest, "tax_rate_unavailable", "Choose an active tax rate, or No tax."}
+
+func validTaxRateID(v string) bool { return strings.HasPrefix(v, "tax_") && len(v) == 16 }
+
 func normalizeDBError(err error) error {
 	var pg *pgconn.PgError
 	if errors.As(err, &pg) && pg.Code == "23505" {
@@ -80,6 +85,10 @@ func (s *Service) CreateProduct(ctx context.Context, tenantID, userID string, in
 		(in.InitialQuantity != nil && (*in.InitialQuantity < 0 || *in.InitialQuantity > 1_000_000_000)) {
 		return nil, ErrInvalid
 	}
+	in.TaxRateID = strings.TrimSpace(in.TaxRateID)
+	if in.TaxRateID != "" && !validTaxRateID(in.TaxRateID) {
+		return nil, ErrTaxRate
+	}
 	v, err := trimVariant(in.Variant)
 	if err != nil {
 		return nil, err
@@ -89,8 +98,15 @@ func (s *Service) CreateProduct(ctx context.Context, tenantID, userID string, in
 	return p, normalizeDBError(err)
 }
 func (s *Service) UpdateProduct(ctx context.Context, tenantID, productID string, in UpdateProductInput) (*Product, error) {
-	if in.Name == nil && in.Description == nil && in.Status == nil {
+	if in.Name == nil && in.Description == nil && in.Status == nil && in.TaxRateID == nil {
 		return nil, ErrInvalid
+	}
+	if in.TaxRateID != nil {
+		v := strings.TrimSpace(*in.TaxRateID)
+		if v != "" && !validTaxRateID(v) {
+			return nil, ErrTaxRate
+		}
+		in.TaxRateID = &v
 	}
 	if in.Name != nil {
 		v := strings.TrimSpace(*in.Name)

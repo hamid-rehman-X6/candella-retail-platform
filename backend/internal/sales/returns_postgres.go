@@ -14,6 +14,7 @@ import (
 
 	"candella-ecosystem/backend/internal/register"
 	"candella-ecosystem/backend/internal/store"
+	"candella-ecosystem/backend/internal/tax"
 	"candella-ecosystem/backend/pkg/id"
 	"candella-ecosystem/backend/pkg/money"
 )
@@ -80,17 +81,19 @@ func (r *postgresRepository) CreateReturn(ctx context.Context, tenantID, userID,
 		}
 
 		items := make([]ReturnItem, 0, len(in.Items))
-		var refund int64
+		var refund, refundTax int64
 		for _, line := range in.Items {
 			var item ReturnItem
-			var sold, returned int64
+			var sold, returned, lineTotal, lineTax int64
+			var inclusive *bool
 			err := tx.QueryRow(ctx, `SELECT oi.product_name_snapshot, oi.variant_name_snapshot, oi.sku_snapshot,
-				oi.quantity, oi.unit_price_minor,
+				oi.quantity, oi.unit_price_minor, oi.line_total_minor, oi.tax_minor, oi.tax_inclusive,
 				COALESCE((SELECT sum(ri.quantity) FROM return_items ri
 				  WHERE ri.tenant_id=oi.tenant_id AND ri.order_id=oi.order_id AND ri.variant_id=oi.variant_id), 0)
 				FROM order_items oi WHERE oi.tenant_id=$1 AND oi.order_id=$2 AND oi.variant_id=$3`,
 				tenantID, orderID, line.VariantID).
-				Scan(&item.ProductName, &item.VariantName, &item.SKU, &sold, &item.UnitPriceMinor, &returned)
+				Scan(&item.ProductName, &item.VariantName, &item.SKU, &sold, &item.UnitPriceMinor,
+					&lineTotal, &lineTax, &inclusive, &returned)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrReturnItemNotInSale
 			}
@@ -103,9 +106,15 @@ func (r *postgresRepository) CreateReturn(ctx context.Context, tenantID, userID,
 			}
 			item.VariantID = line.VariantID
 			item.Quantity = line.Quantity
-			// Bounded by the original line total, so this cannot overflow.
-			item.LineRefundMinor = item.UnitPriceMinor * item.Quantity
+			// The customer gets back what they paid for these units, tax
+			// included, worked out from the sale's own snapshot. Shares of a
+			// line always add up to the line, so a full return refunds the
+			// line to the paisa however it was split.
+			gross := tax.Gross(lineTotal, lineTax, inclusive != nil && *inclusive)
+			item.LineRefundMinor = tax.Share(gross, sold, returned, item.Quantity)
+			item.TaxMinor = tax.Share(lineTax, sold, returned, item.Quantity)
 			refund += item.LineRefundMinor
+			refundTax += item.TaxMinor
 			items = append(items, item)
 		}
 		if refund <= 0 {
@@ -130,17 +139,18 @@ func (r *postgresRepository) CreateReturn(ctx context.Context, tenantID, userID,
 		returnID := id.New(id.Return)
 		returnNumber := fmt.Sprintf("RET-%06d", sequence)
 		if _, err := tx.Exec(ctx, `INSERT INTO returns (id, tenant_id, store_id, order_id, register_session_id,
-			return_number, idempotency_key, request_hash, reason, refund_minor, currency_code, created_by, processor_name_snapshot)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+			return_number, idempotency_key, request_hash, reason, refund_minor, currency_code, created_by, processor_name_snapshot,
+			tax_minor)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
 			returnID, tenantID, location.ID, orderID, shiftID, returnNumber, in.IdempotencyKey, hash,
-			in.Reason, refund, currency, userID, processorName); err != nil {
+			in.Reason, refund, currency, userID, processorName, refundTax); err != nil {
 			return err
 		}
 		for _, item := range items {
 			if _, err := tx.Exec(ctx, `INSERT INTO return_items (id, tenant_id, return_id, order_id, variant_id,
-				quantity, unit_price_minor, line_refund_minor) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+				quantity, unit_price_minor, line_refund_minor, tax_minor) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 				id.New(id.ReturnItem), tenantID, returnID, orderID, item.VariantID, item.Quantity,
-				item.UnitPriceMinor, item.LineRefundMinor); err != nil {
+				item.UnitPriceMinor, item.LineRefundMinor, item.TaxMinor); err != nil {
 				return err
 			}
 			if err := restock(ctx, tx, tenantID, location.ID, userID, returnID, returnNumber, item); err != nil {
@@ -211,14 +221,14 @@ func (r *postgresRepository) FindReturn(ctx context.Context, tenantID, returnID 
 func loadReturn(ctx context.Context, tx pgx.Tx, tenantID, returnID string) (*Return, error) {
 	ret := &Return{Items: []ReturnItem{}}
 	err := tx.QueryRow(ctx, `SELECT r.id, r.return_number, r.order_id, o.order_number, r.store_id, o.store_name_snapshot,
-		rs.register_name_snapshot, r.register_session_id, r.reason, r.refund_method, r.refund_minor, r.currency_code,
+		rs.register_name_snapshot, r.register_session_id, r.reason, r.refund_method, r.refund_minor, r.tax_minor, r.currency_code,
 		r.created_by, r.processor_name_snapshot, r.created_at
 		FROM returns r
 		JOIN orders o ON o.tenant_id=r.tenant_id AND o.id=r.order_id
 		JOIN register_sessions rs ON rs.tenant_id=r.tenant_id AND rs.id=r.register_session_id
 		WHERE r.tenant_id=$1 AND r.id=$2`, tenantID, returnID).
 		Scan(&ret.ID, &ret.ReturnNumber, &ret.OrderID, &ret.OrderNumber, &ret.StoreID, &ret.StoreName,
-			&ret.RegisterName, &ret.ShiftID, &ret.Reason, &ret.RefundMethod, &ret.RefundMinor, &ret.CurrencyCode,
+			&ret.RegisterName, &ret.ShiftID, &ret.Reason, &ret.RefundMethod, &ret.RefundMinor, &ret.TaxMinor, &ret.CurrencyCode,
 			&ret.ProcessedBy, &ret.ProcessorName, &ret.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrReturnNotFound
@@ -227,7 +237,7 @@ func loadReturn(ctx context.Context, tx pgx.Tx, tenantID, returnID string) (*Ret
 		return nil, err
 	}
 	rows, err := tx.Query(ctx, `SELECT ri.variant_id, oi.product_name_snapshot, oi.variant_name_snapshot, oi.sku_snapshot,
-		ri.quantity, ri.unit_price_minor, ri.line_refund_minor
+		ri.quantity, ri.unit_price_minor, ri.line_refund_minor, ri.tax_minor
 		FROM return_items ri
 		JOIN order_items oi ON oi.tenant_id=ri.tenant_id AND oi.order_id=ri.order_id AND oi.variant_id=ri.variant_id
 		WHERE ri.tenant_id=$1 AND ri.return_id=$2 ORDER BY ri.variant_id`, tenantID, returnID)
@@ -238,7 +248,7 @@ func loadReturn(ctx context.Context, tx pgx.Tx, tenantID, returnID string) (*Ret
 	for rows.Next() {
 		var item ReturnItem
 		if err := rows.Scan(&item.VariantID, &item.ProductName, &item.VariantName, &item.SKU,
-			&item.Quantity, &item.UnitPriceMinor, &item.LineRefundMinor); err != nil {
+			&item.Quantity, &item.UnitPriceMinor, &item.LineRefundMinor, &item.TaxMinor); err != nil {
 			return nil, err
 		}
 		ret.Items = append(ret.Items, item)
