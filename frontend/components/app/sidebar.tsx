@@ -10,6 +10,7 @@ import {
   Truck,
   Users,
   BarChart3,
+  Percent,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
@@ -238,6 +239,24 @@ export function Sidebar({
             >
               <Users className="h-4.5 w-4.5 shrink-0" />
               <NavLabel collapsed={collapsed}>Staff</NavLabel>
+            </Link>
+          )}
+          {canManageStaff && (
+            <Link
+              href={workspacePath(current.slug, "/taxes")}
+              onClick={onClose}
+              aria-label={collapsed ? "Taxes" : undefined}
+              title={collapsed ? "Taxes" : undefined}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 motion-reduce:transition-none",
+                collapsed && "lg:justify-center lg:gap-0",
+                pathname === workspacePath(current.slug, "/taxes")
+                  ? "bg-accent/10 text-accent-ink ring-1 ring-accent/20"
+                  : "text-muted hover:bg-foreground/5 hover:text-foreground",
+              )}
+            >
+              <Percent className="h-4.5 w-4.5 shrink-0" />
+              <NavLabel collapsed={collapsed}>Taxes</NavLabel>
             </Link>
           )}
         </nav>

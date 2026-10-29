@@ -7,6 +7,10 @@ export type ReportDay = {
   refundsCount: number;
   refundsMinor: number;
   netSalesMinor: number;
+  /** Tax charged on the day's sales, less the tax handed back in refunds. */
+  taxMinor: number;
+  refundedTaxMinor: number;
+  netTaxMinor: number;
 };
 export type TopProduct = {
   productId: string;

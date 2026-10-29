@@ -10,6 +10,11 @@ export type SaleItem = {
   lineTotalMinor: number;
   /** Units already taken back; quantity - returnedQuantity can still be returned. */
   returnedQuantity: number;
+  /** The tax as charged on this line; null name means not taxed. */
+  taxName: string | null;
+  taxRateBps: number | null;
+  taxInclusive: boolean | null;
+  taxMinor: number;
 };
 
 export type ReturnSummary = {
@@ -37,6 +42,7 @@ export type Sale = {
   currencyCode: string;
   items: SaleItem[];
   subtotalMinor: number;
+  taxMinor: number;
   grandTotalMinor: number;
   cashReceivedMinor: number;
   changeMinor: number;
@@ -104,6 +110,7 @@ export type ReturnItem = {
   quantity: number;
   unitPriceMinor: number;
   lineRefundMinor: number;
+  taxMinor: number;
 };
 
 export type SaleReturn = {
@@ -118,6 +125,7 @@ export type SaleReturn = {
   reason: string;
   refundMethod: "cash";
   refundMinor: number;
+  taxMinor: number;
   currencyCode: string;
   processedBy: string;
   processorName: string;

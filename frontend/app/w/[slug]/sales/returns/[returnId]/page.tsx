@@ -117,6 +117,12 @@ export default function RefundReceiptPage() {
               <dt>Cash refunded</dt>
               <dd>{formatMoney(refund.refundMinor, refund.currencyCode)}</dd>
             </div>
+            {refund.taxMinor > 0 && (
+              <div className="flex justify-between">
+                <dt>Of which tax</dt>
+                <dd>{formatMoney(refund.taxMinor, refund.currencyCode)}</dd>
+              </div>
+            )}
             <div className="flex justify-between gap-4">
               <dt>Reason</dt>
               <dd className="text-right">{refund.reason}</dd>

@@ -15,6 +15,9 @@ export type Product = {
   name: string;
   description: string;
   status: "active" | "archived";
+  /** The rate charged on every variant; null means not taxed. */
+  taxRateId: string | null;
+  taxRateName: string | null;
   variants: Variant[];
   createdAt: string;
 };
@@ -32,6 +35,9 @@ export type StockItem = {
   preferredSupplierId: string | null;
   preferredSupplierName: string | null;
   configuredSupplierId: string | null;
+  taxName: string | null;
+  taxRateBps: number | null;
+  taxInclusive: boolean | null;
 };
 
 export type ReorderItem = StockItem & { suggestedQuantity: number };
@@ -98,13 +104,17 @@ export const createProduct = (
     description: string;
     variant: VariantInput;
     initialQuantity?: number;
+    taxRateId?: string;
   },
 ) => apiPost<{ product: Product }>("/products", input, tenantId);
 
 export const updateProduct = (
   tenantId: string,
   productId: string,
-  input: Partial<Pick<Product, "name" | "description" | "status">>,
+  input: Partial<Pick<Product, "name" | "description" | "status">> & {
+    /** "" removes the product's tax. */
+    taxRateId?: string;
+  },
 ) =>
   apiFetch<{ product: Product }>(`/products/${productId}`, {
     method: "PATCH",

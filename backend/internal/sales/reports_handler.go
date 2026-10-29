@@ -85,15 +85,19 @@ func reportCSV(report *DailyReport) ([]byte, error) {
 	if err := write("Amounts are integer minor units; net = gross cash - cash refunds"); err != nil {
 		return nil, err
 	}
-	if err := write("Date", "Sales count", "Gross cash minor", "Refund count", "Cash refunds minor", "Net sales minor"); err != nil {
+	if err := write("Date", "Sales count", "Gross cash minor", "Refund count", "Cash refunds minor", "Net sales minor",
+		"Tax charged minor", "Tax refunded minor", "Net tax minor"); err != nil {
 		return nil, err
 	}
 	for _, day := range report.Days {
-		if err := write(day.Date, n(day.SalesCount), n(day.GrossCashMinor), n(day.RefundsCount), n(day.RefundsMinor), n(day.NetSalesMinor)); err != nil {
+		if err := write(day.Date, n(day.SalesCount), n(day.GrossCashMinor), n(day.RefundsCount), n(day.RefundsMinor), n(day.NetSalesMinor),
+			n(day.TaxMinor), n(day.RefundedTaxMinor), n(day.NetTaxMinor)); err != nil {
 			return nil, err
 		}
 	}
-	if err := write("TOTAL", n(report.Totals.SalesCount), n(report.Totals.GrossCashMinor), n(report.Totals.RefundsCount), n(report.Totals.RefundsMinor), n(report.Totals.NetSalesMinor)); err != nil {
+	t := report.Totals
+	if err := write("TOTAL", n(t.SalesCount), n(t.GrossCashMinor), n(t.RefundsCount), n(t.RefundsMinor), n(t.NetSalesMinor),
+		n(t.TaxMinor), n(t.RefundedTaxMinor), n(t.NetTaxMinor)); err != nil {
 		return nil, err
 	}
 	if err := write(); err != nil {

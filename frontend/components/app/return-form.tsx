@@ -8,6 +8,7 @@ import { ShiftPanel } from "@/components/app/shift-panel";
 import { Select } from "@/components/ui/select";
 import { formatMoney } from "@/lib/money";
 import { createReturn, type Sale } from "@/lib/sales-api";
+import { lineGross, share } from "@/lib/tax";
 import { useCounter } from "@/lib/use-counter";
 
 const field =
@@ -36,8 +37,17 @@ export function ReturnForm({ sale }: { sale: Sale }) {
     }))
     .filter((line) => line.remaining > 0);
   const chosen = lines.filter((line) => line.quantity > 0);
+  // What the server will pay back: each line's share of what was charged
+  // for it, tax included.
   const refund = chosen.reduce(
-    (sum, line) => sum + line.item.unitPriceMinor * line.quantity,
+    (sum, { item, quantity }) =>
+      sum +
+      share(
+        lineGross(item.lineTotalMinor, item.taxMinor, !!item.taxInclusive),
+        item.quantity,
+        item.returnedQuantity,
+        quantity,
+      ),
     0,
   );
   const shiftOpen = !!counter.register?.openSession;

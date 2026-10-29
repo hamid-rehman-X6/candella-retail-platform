@@ -18,6 +18,10 @@ type ReportDay struct {
 	RefundsCount   int64  `json:"refundsCount"`
 	RefundsMinor   int64  `json:"refundsMinor"`
 	NetSalesMinor  int64  `json:"netSalesMinor"`
+	// Tax charged on the day's sales, minus the tax handed back in refunds.
+	TaxMinor         int64 `json:"taxMinor"`
+	RefundedTaxMinor int64 `json:"refundedTaxMinor"`
+	NetTaxMinor      int64 `json:"netTaxMinor"`
 }
 
 type TopProduct struct {
